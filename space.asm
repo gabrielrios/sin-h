@@ -21,6 +21,7 @@ NUMERO_VIDAS            DB      03d
 
 ;INIMIGO
 DIR_NAVE_INIMIGA		DB		'D'
+POS_NAVE_INIMIGA_X      DB      00d
 
 ; Flags
 PAUSED                  DB      'J'
