@@ -19,6 +19,8 @@ POS_NAVE_X				DB		42		;Posição Inicial do carro na tela
 DIR_NAVE_INIMIGA		DB		'D'
 POS_NAVE_INIMIGA_X		DB		0D
 
+PAUSED                  DB      'J'
+
 .CODE
 
 MAIN PROC 
@@ -38,8 +40,11 @@ MAIN ENDP
 
 DESENHA PROC
 	CALL KBHIT
+    CMP PAUSED, 'P' ;VERIFICA SE ESTÁ PAUSADO, SE ESTIVER FAZ NADA
+    JE PAUSA
 	CALL DESENHA_NAVE
 	CALL DESENHA_NAVE_INIMIGA
+	PAUSA:
 	RET
 DESENHA ENDP
 
@@ -58,6 +63,12 @@ KBHIT PROC
 				
 		CMP	AL,TECLA_ESC
 		JE FIM_JOGO
+		
+		CMP AL, CR          ; Pausa o jogo
+		JE PAUSE_SWITCH
+		
+		CMP PAUSED, 'P' ; Verifica se está pausado, verdadeiro termina o kbhit
+		JE KBHIT_END
 		
 		CMP AH,'M'
 		JE ACERTA_NAVE_DIREITA
@@ -84,7 +95,19 @@ KBHIT PROC
 			MOV AH, POS_NAVE_X
 			DEC AH
 			MOV POS_NAVE_X, AH
-
+        
+	        JMP KBHIT_END
+			
+		PAUSE_SWITCH:           ; Pausa e despausa
+		    CMP PAUSED, 'P' 
+		    JE UNPAUSE          ; tira pausa se estiver pausado
+		    MOV PAUSED, 'P'     ; pausa
+		    JMP KBHIT_END
+		    UNPAUSE:
+		        MOV PAUSED, 'J'
+		    JMP KBHIT_END
+		    
+			    
 	KBHIT_END:
 	
 		MOV	AH, 00h
