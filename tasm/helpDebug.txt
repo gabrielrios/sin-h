@@ -1,0 +1,32 @@
+* Para criar um programa, usa-se o comando a (Assemble), com
+  o endereco inicial destinado a programas .com no DOS (0100)
+  -a
+
+* Dar um nome ao programa
+  -n nomePrograma.com
+
+* Obter o tamanho do programa subtraindo o endereço final do
+  endereço inicial, naturalmente que no sistema hexadecimal.
+  -h endFinal endInicial
+  O segundo campo eh a diferenca
+
+* Colocar o tamanho do programa (diferenca apresentada no 
+  comando "h" - segundo campo) no registrador CX.
+  -rcx
+  : "colocar a diferença mostrada pelo comando anterior"
+
+* Mandar o debug gravar o programa em disco.
+  -w
+
+* Depois de gravado, é preciso carrega-lo
+  -l
+
+* Antes de executa-lo, ainda eh possivel desmonta-lo, atraves
+  do comando u
+  -u EndInicial (EndFinal - 1)
+
+* Para executa-lo, deve ser dado o comando "go"
+  -g
+
+  O programa será executado ate aparecer a mensagem:
+  "Program terminated normally"
