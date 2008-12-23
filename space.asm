@@ -10,14 +10,28 @@ TECLA_ESC				EQU		1Bh
 ESQUERDA    			EQU     4Bh
 DIREITA     			EQU     4Dh
 
+
+
 ; JOGADOR
-NAVE_JOGADOR_FREN		DB		' ', ' ',176,' ',176,' ',"$"	
-NAVE_JOGADOR_MEIO		DB		' ', ' ',219,176,219,' ',"$"
-NAVE_JOGADOR_TRAS		DB		' ', 176,219,219,219,176,' ', "$" 	
+NAVE_JOGADOR_FREN		DB		' ',176,' ',176,"$"	
+NAVE_JOGADOR_MEIO		DB		' ',219,176,219,"$"
+NAVE_JOGADOR_TRAS		DB		176,219,219,219,176,' ', "$" 
 
 POS_NAVE_X				DB		42		;Posição Inicial do carro na tela
 
 NUMERO_VIDAS            DB      03d
+
+;TIROS
+TIRO                    DB      0BAh, "$"
+MAX_TIROS               DB      5d
+NUM_TIROS               DB      0d
+TIROS                   DB      00d, 00d, 00d, 00d, 00d	
+TIROS_X                 DB      00d, 10d, 20d, 30d, 40d
+TIROS_Y                 DB      20d, 20d, 20d, 20d, 20d
+TMP_TIRO_X              DB      ?
+TMP_TIRO_y              DB      ?
+
+Z                       DB      20d
 
 ;INIMIGO
 DIR_NAVE_INIMIGA		DB		'D'
@@ -59,6 +73,7 @@ MAIN PROC
         
         ;lógica
         CALL MOVE_NAVES_INIMIGAS
+        CALL MOVE_TIROS
         
         PAUSA:
         ; Desenho
@@ -108,7 +123,8 @@ LIMPA_TUDO ENDP
 DESENHA PROC
     ;CALL DEBUG_MSG
     CALL LIMPA_TUDO
-	CALL DESENHA_NAVE
+	CALL DESENHA_TIROS
+    CALL DESENHA_NAVE
 	CALL DESENHA_NAVE_INIMIGA
 	RET
 DESENHA ENDP
@@ -140,6 +156,9 @@ KBHIT PROC
 		
 		CMP AH,'K'
 		JE ACERTA_NAVE_ESQUERDA
+		
+		CMP AL, ' '
+		JE L_ATIROU         ; o jogador atirou
 		
 		JMP KBHIT_END ; Outra tecla
 		
@@ -176,7 +195,9 @@ KBHIT PROC
 		    UNPAUSE:
 		        MOV PAUSED, 'J'
 		    JMP KBHIT_END
-		    
+	    
+		L_ATIROU:
+		    CALL ATIRAR
 			    
 	KBHIT_END:
 	
@@ -405,7 +426,7 @@ DESENHA_NAVE_INIMIGA PROC
     MOV CL, 04h
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     
-    DRAW_ENEMY:
+    DRAW_ENEMY:    
         MOV DL, [BX]
         MOV AUX_MOV, DL
     	GOTOXY AUX_MOV POS_NAVES_INIMIGAS_Y
@@ -426,14 +447,176 @@ DESENHA_NAVE_INIMIGA PROC
 	RET
 DESENHA_NAVE_INIMIGA ENDP
 
+DESENHA_TIROS PROC
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV CL, MAX_TIROS
+    MOV BX, OFFSET TIROS
+    
+    L_DESENHA_TIROS:
+
+        MOV DL, [BX]        ; item do array para var auxiliar
+        MOV AUX_MOV, DL
+    
+        CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
+        JE L_NAO_DESENHA_TIRO
+        
+        CALL FIND_TIRO_X ; pega a posicao x do tiro
+        CALL FIND_TIRO_Y ; pega o y do tiro
+        
+        GOTOXY TMP_TIRO_X TMP_TIRO_Y
+        WRITE_STRING TIRO
+        
+        L_NAO_DESENHA_TIRO:
+            INC BX
+            LOOP L_DESENHA_TIROS
+       
+    POP DX
+    POP CX
+    POP BX     
+    RET
+DESENHA_TIROS ENDP
+
+; PEGA A POSICAO Y DO TIRO ATUAL
+FIND_TIRO_Y PROC
+    PUSH BX
+    PUSH DX
+    
+    
+    MOV BX, OFFSET TIROS_Y
+    MOV DL, MAX_TIROS
+    SUB DL, CL
+    L_FIND_TIRO_POS_Y:    ; laco percorre o array de posicoes ate o tiro atual pra pegar o valor
+        CMP DL, 00h
+        JE L_FOUND_TIRO_POS_Y
+        INC BX
+        DEC DL
+        JMP L_FIND_TIRO_POS_Y
+
+    L_FOUND_TIRO_POS_Y: 
+    MOV DL, [BX]       
+    MOV TMP_TIRO_Y, DL
+    
+    POP DX
+    POP BX
+    RET
+FIND_TIRO_Y ENDP
+
+; PEGA A POSICAO X DO TIRO ATUAL
+FIND_TIRO_X PROC
+    PUSH BX
+    PUSH DX
+    
+    MOV BX, OFFSET TIROS_X
+    MOV DL, MAX_TIROS
+    SUB DL, CL
+    L_FIND_TIRO_POS_X:
+        CMP DL, 00h
+        JE L_FOUND_TIRO_POS_X
+        INC BX
+        DEC DL
+        JMP L_FIND_TIRO_POS_X
+
+    L_FOUND_TIRO_POS_X: 
+    MOV DL, [BX]       
+    MOV TMP_TIRO_X, DL
+    
+    POP DX
+    POP BX
+    RET
+FIND_TIRO_X ENDP
+
+ATIRAR PROC
+    PUSH CX
+    PUSH BX
+    PUSH DX
+    
+
+    MOV DL, MAX_TIROS
+    CMP DL, NUM_TIROS
+    JE L_NAO_ATIRA
+    
+    MOV CL, NUM_TIROS
+    MOV BX, OFFSET TIROS_X    ; posiciona o tiro no eixo x
+    ADD BX, CX
+    MOV DL, POS_NAVE_X
+    ADD DL, 02d    ; normalizando posição tiro
+    MOV [BX], DL
+    
+    MOV BX, OFFSET TIROS_Y   ; posiciona o tiro no eixo x
+    ADD BX, CX
+    MOV DL, 21d
+    MOV [BX],DL    
+    
+    MOV BX, OFFSET TIROS
+    ADD BX, CX
+    MOV DL, 01h
+    MOV [BX], DL
+    INC NUM_TIROS
+        
+    L_NAO_ATIRA:
+        POP DX
+        POP BX
+        POP CX
+        RET
+ATIRAR ENDP
+
+MOVE_TIROS PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV CL, MAX_TIROS
+    MOV BX, OFFSET TIROS
+    MOV AX, 0000h
+    
+    L_MOVE_TIROS:
+        MOV DL, [BX]        ; item do array para var auxiliar
+        MOV AUX_MOV, DL
+    
+        CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
+        JE L_NAO_MOVE_TIRO
+        
+        CALL FIND_TIRO_Y ; pega o y do tiro
+        DEC TMP_TIRO_Y
+        PUSH BX
+        MOV BX, OFFSET TIROS_Y
+        ADD BX, AX
+        MOV DL, TMP_TIRO_Y
+        MOV [BX], DL        
+        POP BX
+        
+        ; se o tiro chegou na borda da tela
+        CMP TMP_TIRO_Y, 00h
+        JNE L_NAO_MOVE_TIRO
+        
+        MOV AUX_MOV, 00h
+        MOV DL, AUX_MOV
+        MOV [BX], DL
+        DEC NUM_TIROS
+        
+        L_NAO_MOVE_TIRO:
+            INC AX
+            INC BX
+            LOOP L_MOVE_TIROS
+      
+    POP DX  
+    POP CX   
+    POP BX
+    POP AX
+    RET
+MOVE_TIROS ENDP
+
 DEBUG_MSG PROC
     PUSH CX
     PUSH DX
     PUSH BX
     
     GOTOXY 30 10
-    MOV BX, OFFSET POS_NAVES_INIMIGAS_X
-    WRITE_STRING [BX], '$'
+    WRITE_STRING DEBUG_STRING
     
     CALL ESCONDE_CURSOR
     
