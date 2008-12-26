@@ -52,14 +52,75 @@ LEFTMOST                DB      0d
 TOPMOST                 DB      0d
 LINHA_VAZIA				DB		"                                                                              $"
 
+;Tela inicial
+TXT_JOGO                DB "         ____    ____    ______  ____     ____      ", CR, LF
+                        DB "        /\  _`\ /\  _`\ /\  _  \/\  _`\  /\  _`\    ", CR, LF
+                        DB "        \ \,\L\_\ \ \L\ \ \ \L\ \ \ \/\_\\ \ \L\_\  ", CR, LF
+                        DB "         \/_\__ \\ \ ,__/\ \  __ \ \ \/_/_\ \  _\L  ", CR, LF
+                        DB "           /\ \L\ \ \ \/  \ \ \/\ \ \ \L\ \\ \ \L\ \", CR, LF
+                        DB "           \ `\____\ \_\   \ \_\ \_\ \____/ \ \____/", CR, LF
+                        DB "            \/_____/\/_/    \/_/\/_/\/___/   \/___/ ", CR, LF
+                        DB "     ______   __  __  __  __  ______  ____    ____    ____    ____       ", CR, LF
+                        DB "    /\__  _\ /\ \/\ \/\ \/\ \/\  _  \/\  _`\ /\  _`\ /\  _`\ /\  _`\     ", CR, LF
+                        DB "    \/_/\ \/ \ \ `\\ \ \ \ \ \ \ \L\ \ \ \/\ \ \ \L\_\ \ \L\ \ \,\L\_\   ", CR, LF
+                        DB "       \ \ \  \ \ , ` \ \ \ \ \ \  __ \ \ \ \ \ \  _\L\ \ ,  /\/_\__ \   ", CR, LF
+                        DB "        \_\ \__\ \ \`\ \ \ \_/ \ \ \/\ \ \ \_\ \ \ \L\ \ \ \\ \ /\ \L\ \ ", CR, LF
+                        DB "        /\_____\\ \_\ \_\ `\___/\ \_\ \_\ \____/\ \____/\ \_\ \_\ `\____\", CR, LF
+                        DB "        \/_____/ \/_/\/_/`\/__/  \/_/\/_/\/___/  \/___/  \/_/\/ /\/_____/", CR,LF,LF,"$"
 
+TXT_CREDITOS            DB "       __ .__ .___.__ ._..___..__. __.", CR,LF
+                        DB "      /  `[__)[__ |  \ |   |  |  |(__ ", CR,LF
+                        DB "      \__.|  \[___|__/_|_  |  |__|.__)", CR,LF
+                        DB LF,LF,"  Space Invaders eh um projeto da disciplina Software Basico", CR,LF
+                        DB "  ministrada pelo professor Pericles Sobreira.", CR,LF,LF
+                        DB "  Universidade Estadual de Santa Cruz (UESC)", CR,LF,LF
+                        DB "Creditos:", CR,LF
+                        DB "          Alexandre Gonzaga", CR,LF
+                        DB "          Gabriel Rios", CR,LF
+                        DB "          Helder Conceicao", CR,LF
+                        DB "          Marlesson Santana", CR,LF
+                        DB "          Pablo Rangel", CR, LF, LF, LF, "$"
+
+TXT_HELP                DB "      .__.   ..  ..__ .__.",CR,LF
+                        DB "      [__]   ||  ||  \[__]",CR,LF
+                        DB "      |  |\__||__||__/|  |",CR,LF
+                        DB LF,LF, "    Voce deve defender o planeta destruindo todas as naves inimigas.",CR,LF
+                        DB " Entre sua nave e as naves invasoras existem quatro barreiras que sao",CR,LF
+                        DB " destruidas a medida que sao atingidas por tiros ou por naves invasoras",CR,LF
+                        DB "    Voce comeca o jogo com tres vidas e ganha mais vidas a cada 1500 pts.", CR,LF
+                        DB " O jogo termina quando o numero de vidas for igual a zero ou quando os invasores", CR,LF
+                        DB " alcancarem a linha da nave defensora.", CR,LF
+                        DB " Existem quatro tipo de invasores:",CR,LF
+                        DB "       Octopus: 10 pontos;",CR,LF
+                        DB "          Crab: 20 pontos",CR,LF
+                        DB "         Squid: 30 pontos",CR,LF
+                        DB " Nave Espacial: 50 a 300 pontos",CR,LF
+                        DB LF, "           TECLAS DE MOVIMENTO",CR,LF,LF
+                        DB "ESQUERDA: seta esquerda",CR,LF
+                        DB "DIREITA:  seta direita",CR,LF
+                        DB "TIRO:     espaco",CR,LF
+                        DB "PAUSE:    enter", CR, LF,"$"
+
+TXT_RECORDS             DB "      .__ .___ __ .__..__ .__  __.", CR, LF
+                        DB "      [__)[__ /  `|  |[__)|  \(__ ", CR, LF
+                        DB "      |  \[___\__.|__||  \|__/.__)", CR, LF
+                        DB LF,LF, "             EM BREVE!", CR, LF, "$"
+
+STR_INICIAR             DB CR, LF,LF, "        [1] INICIAR JOGO$"
+STR_RECORDS             DB CR, LF, "        [2] RECORDS$"
+STR_CREDITO             DB CR, LF, "        [3] CREDITOS$"
+STR_HELP                DB CR, LF, "        [4] AJUDA$"
+STR_SAIR                DB CR, LF, "        [5] SAIR$"
 
 .CODE
 
 MAIN PROC 
 	MOV	AX,	@DATA
 	MOV	DS,	AX
-	
+
+    ;looping da tela inicial
+    CALL TELA_INICIAL	
+    
 	CALL DESENHA_FUNDO_PADRAO
 	GAME_LOOP:
 	    ; condições de parada
@@ -609,6 +670,86 @@ MOVE_TIROS PROC
     POP AX
     RET
 MOVE_TIROS ENDP
+
+
+TELA_INICIAL PROC
+    PUSH DX
+    PUSH AX
+    
+    MAIN_TELA:
+        LIMPA_TELA
+        MOV AH,09H
+        LEA DX, TXT_JOGO    ;banner do jogo
+        INT 21H
+        
+        ;menu
+        LEA DX, STR_INICIAR
+        INT 21H
+        LEA DX, STR_RECORDS
+        INT 21H
+        LEA DX, STR_CREDITO
+        INT 21H
+        LEA DX, STR_HELP
+        INT 21H
+        LEA DX, STR_SAIR
+        INT 21H
+        
+        CALL ESCONDE_CURSOR
+        
+        MOV AH, 07H
+        INT 21H
+        
+        CMP AL, '1'
+        JE FIM_TELA        
+        CMP AL, '2'
+        JE RECORDS    
+        CMP AL, '3'
+        JE  CREDITOS    
+        CMP AL, '4'
+        JE AJUDA        
+        CMP AL, '5'
+        JE SAIR        
+    JMP MAIN_TELA
+    
+    RECORDS:
+        LIMPA_TELA
+        MOV AH, 09H
+        LEA DX, TXT_RECORDS
+        INT 21H
+        CALL ESCONDE_CURSOR
+        MOV AH, 07H
+        INT 21H
+        JMP MAIN_TELA
+        
+    AJUDA:
+        LIMPA_TELA
+        MOV AH, 09H
+        LEA DX, TXT_HELP
+        INT 21H
+        CALL ESCONDE_CURSOR
+        MOV AH, 07H
+        INT 21H
+        JMP MAIN_TELA
+    
+    CREDITOS:
+        LIMPA_TELA
+        MOV AH, 09H
+        LEA DX, TXT_CREDITOS
+        INT 21H
+        CALL ESCONDE_CURSOR
+        MOV AH, 07H
+        INT 21H
+        JMP MAIN_TELA
+        
+    SAIR:
+        MOV AH, 4Ch
+        INT 21h
+    
+    FIM_TELA:
+        POP AX
+        POP DX
+    RET
+TELA_INICIAL ENDP
 
 DEBUG_MSG PROC
     PUSH CX
