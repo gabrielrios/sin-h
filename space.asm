@@ -13,9 +13,8 @@ DIREITA     			EQU     4Dh
 
 
 ; JOGADOR
-NAVE_JOGADOR_FREN		DB		' ',176,' ',176,"$"	
-NAVE_JOGADOR_MEIO		DB		' ',219,176,219,"$"
-NAVE_JOGADOR_TRAS		DB		176,219,219,219,176,' ', "$" 
+NAVE_JOGADOR_FREN		DB		' ',' ',220,"$"	
+NAVE_JOGADOR_TRAS		DB		219,219,219,219,219, "$" 
 
 POS_NAVE_X				DB		42		;Posição Inicial do carro na tela
 
@@ -23,7 +22,7 @@ NUMERO_VIDAS            DB      03d
 
 ;TIROS
 TIRO                    DB      0BAh, "$"
-MAX_TIROS               DB      5d
+MAX_TIROS               DB      1d
 NUM_TIROS               DB      0d
 TIROS                   DB      00d, 00d, 00d, 00d, 00d	
 TIROS_X                 DB      00d, 10d, 20d, 30d, 40d
@@ -34,11 +33,22 @@ TMP_TIRO_y              DB      ?
 Z                       DB      20d
 
 ;INIMIGO
+OCTOPUS_UPPER           DB      220,219,219,220, "$"
+OCTOPUS_LOWER           DB      95,47,92,95, "$"
+CRAB_UPPER              DB      192,219,219,217, "$"
+CRAB_LOWER              DB      " ",39,96, "$"
+SQUID_UPPER             DB      ' ',220,219,220, "$"
+SQUID_LOWER             DB      ' ',201,202,187, "$"
 DIR_NAVE_INIMIGA		DB		'D'
-POS_NAVES_INIMIGAS_X    DB      00d, 10d, 20d, 30d
-POS_NAVES_INIMIGAS_Y    DB      01d
-POS_NAVES_INIMIGAS_Y1   DB      02d
+TIPO_NAVE_INIMIGA       DB      'S','S','S','S','S','S','S','S','S','S','S', 'C','C','C','C','C','C','C','C','C','C','C', 'C','C','C','C','C','C','C','C','C','C','C', 'O','O','O','O','O','O','O','O','O','O','O', 'O','O','O','O','O','O','O','O','O','O','O'
+TMP_TIPO                DB      'O'
+POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+POS_NAVES_INIMIGAS_Y    DB      01d, 04d, 07d, 10d, 13d
+POS_NAVES_INIMIGAS_Y1   DB      02d, 05d, 08d, 11d, 14d
+NUM_INIMIGO             DB      55d
 AUX_MOV                 DB      ?
+LINHA                   DB      00h
+MAX_LINHA               DB      05d
 
 ; Flags
 PAUSED                  DB      'J'
@@ -380,7 +390,7 @@ MOVE_NAVES_INIMIGAS PROC
     PUSH BX
     PUSH CX
     
-    MOV CL, 04h
+    MOV CL, NUM_INIMIGO
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     
     MOV DL, [POS_NAVES_INIMIGAS_X] ;inimigo mais a esquerda
@@ -389,7 +399,7 @@ MOVE_NAVES_INIMIGAS PROC
     CMP AUX_MOV, 0D
     JE NAVE_INIMIGA_DIR
     
-    MOV DL, [POS_NAVES_INIMIGAS_X+3] ;inimigo mais a direita
+    MOV DL, [POS_NAVES_INIMIGAS_X+10] ;inimigo mais a direita
     MOV AUX_MOV, DL
     
     CMP AUX_MOV, 73D
@@ -400,17 +410,17 @@ MOVE_NAVES_INIMIGAS PROC
 	NAVE_INIMIGA_DIR:
     	MOV DL, 'D'
     	MOV DIR_NAVE_INIMIGA, DL        ;desce
-    	INC POS_NAVES_INIMIGAS_Y
-    	INC POS_NAVES_INIMIGAS_Y1
-    	JMP MOVE_ALL
+    	JMP DESCE
 	
     NAVE_INIMIGA_ESQ:
     	MOV DL, 'E'
     	MOV DIR_NAVE_INIMIGA, DL        ;desce
-    	INC POS_NAVES_INIMIGAS_Y
-    	INC POS_NAVES_INIMIGAS_Y1
-    	MOV DIR_NAVE_INIMIGA, DL
-    
+    	
+    DESCE:
+        CMP [POS_NAVES_INIMIGAS_Y1+4], 20d
+        JE MOVE_ALL
+        CALL DESCE_INIMIGOS
+    	
     MOVE_ALL:
         CALL MOVE_NAVE_INIMIGA
             
@@ -421,7 +431,40 @@ MOVE_NAVES_INIMIGAS PROC
     POP CX
     POP BX
     POP AX
+    
+    RET
 MOVE_NAVES_INIMIGAS ENDP
+
+DESCE_INIMIGOS PROC
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    MOV CL, MAX_LINHA
+    
+    DESCE_Y:
+        MOV DL, [BX]
+        INC DL
+        MOV [BX], DL
+        INC BX
+        LOOP DESCE_Y
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
+    MOV CL, MAX_LINHA
+    
+    DESCE_Y1:
+        MOV DL, [BX]
+        INC DL
+        MOV [BX], DL
+        INC BX
+        LOOP DESCE_Y1
+       
+    POP DX 
+    POP CX
+    POP BX
+    RET
+DESCE_INIMIGOS ENDP
 
 MOVE_NAVE_INIMIGA PROC	
     PUSH CX
@@ -483,30 +526,134 @@ DESENHA_NAVE_INIMIGA PROC
 	PUSH CX
 	PUSH DX
 	PUSH BX
+	PUSH AX
 
-    MOV CL, 04h
+    MOV CL, 11h ;NUM_INIMIGO
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
+    MOV AL, 00h
+    MOV LINHA, 00h
     
-    DRAW_ENEMY:    
-        MOV DL, [BX]
-        MOV AUX_MOV, DL
-    	GOTOXY AUX_MOV POS_NAVES_INIMIGAS_Y
-	    WRITE_STRING NAVE_JOGADOR_MEIO
-	
-	    GOTOXY AUX_MOV POS_NAVES_INIMIGAS_Y1
-	    WRITE_STRING NAVE_JOGADOR_FREN
-	    
-        INC BX
-        LOOP DRAW_ENEMY
+    OUTTER_LOOP:
+        MOV CL, 11d ;NUM_INIMIGO
+        DRAW_ENEMY:    
+            MOV DL, [BX]
+            MOV AUX_MOV, DL
+    
+            PUSH BX
+            MOV BX, OFFSET TIPO_NAVE_INIMIGA
+            ADD BX, AX
+            MOV DL, [BX]
+            CMP DL, 'O'          ;DESENHA OCTOPUS
+            JNE CRAB
+            CALL DESENHA_OCTOPUS
+    	    JMP DESENHADO
+            
+            CRAB:
+            CMP DL, 'C'          ;DESENHA CRAB
+            JNE SQUID
+            CALL DESENHA_CRAB
+            JMP DESENHADO
+            
+            SQUID:
+            CALL DESENHA_SQUID  ;DESENHA SQUID
+            
+            DESENHADO:
+            POP BX
+            INC BX
+            INC AX
+    
+            LOOP DRAW_ENEMY
+        
+        INC LINHA
+        PUSH AX
+        MOV AL, MAX_LINHA
+        CMP LINHA, AL
+        POP AX
+        JNE OUTTER_LOOP
 
     CALL ESCONDE_CURSOR
 
+    POP AX
     POP BX
 	POP DX
 	POP CX
 	
 	RET
 DESENHA_NAVE_INIMIGA ENDP
+
+DESENHA_OCTOPUS PROC
+    PUSH DX
+    PUSH BX
+    
+    MOV DX, 0000h
+    MOV DL, LINHA
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING OCTOPUS_UPPER
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING OCTOPUS_LOWER
+    
+    POP BX
+    POP DX
+    RET
+DESENHA_OCTOPUS ENDP
+
+DESENHA_CRAB PROC
+    PUSH DX
+    PUSH BX
+    
+    MOV DX, 0000h
+    MOV DL, LINHA
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING CRAB_UPPER
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING CRAB_LOWER
+    
+    POP BX
+    POP DX
+    
+    RET
+DESENHA_CRAB ENDP
+
+DESENHA_SQUID PROC
+    PUSH DX
+    PUSH BX
+    
+    MOV DX, 0000h
+    MOV DL, LINHA
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING SQUID_UPPER
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
+    ADD BX, DX
+    
+    GOTOXY AUX_MOV [BX]
+    WRITE_STRING SQUID_LOWER
+    
+    POP BX
+    POP DX
+    
+    RET
+DESENHA_SQUID ENDP
 
 DESENHA_TIROS PROC
     PUSH BX
