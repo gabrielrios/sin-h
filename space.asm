@@ -61,6 +61,10 @@ DEBUG_STRING            DB      'WTF$'
 LEFTMOST                DB      0d
 TOPMOST                 DB      0d
 LINHA_VAZIA				DB		"                                                                              $"
+LAST_MIN				DB		?
+LAST_SEC				DB		?
+LAST_MS					DB		?
+LAST_HOUR				DB		?
 
 ;Tela inicial
 TXT_JOGO                DB "         ____    ____    ______  ____     ____      ", CR, LF
@@ -150,7 +154,6 @@ MAIN PROC
         ; Desenho
         CALL DESENHA
         
-				
 		;DELAY :D
 		CALL DELAY
 		
@@ -363,38 +366,65 @@ ESCONDE_CURSOR ENDP
 
 DELAY PROC
 	PUSH AX
+	PUSH BX
 	PUSH CX
 	PUSH DX
 	
-	
-	MOV AH, 2ch
+	; Pegando o horario do sistema. [ENTRE PARENTESES SÃO OS VALROES ANTIGOS]
+	; CH = hour				(AH)
+	; CL = minute			(AL)
+	; DH = second			(BH)
+	; DL = 1/100 seconds(ms)(BL)
+	MOV AH, 2ch	
 	INT 21h
 	
-	ADD DL, 20d
-	MOV BX, DX
+	ADD DL, 20d			;faça esperar 20ms
+	MOV LAST_MS, DL
+	MOV LAST_SEC, DH
+	MOV LAST_MIN, CL
+	MOV LAST_HOUR, CH
 	
-	CMP DL, 100d
-	JGE PASS_MIN
+	CMP LAST_MS, 100d
+	JGE PASS_SEC
 
-	_DELAY:
+	_DELAY:				; enquanto não passou o tempo necessario
 		MOV AH, 2ch
 		INT 21h
-		CMP BH, DH
-		JA _DELAY
-		CMP BL, DL
-		JA _DELAY
+		CMP LAST_HOUR, CH
+		JG _DELAY
+		CMP LAST_MIN, CL
+		JG _DELAY
+		CMP LAST_SEC, DH
+		JG _DELAY
+		CMP LAST_MS, DL
+		JG _DELAY
 
 	POP DX
-	POP CX
 	POP AX
-
+	POP CX
+	POP BX
+	
 	RET
 	
-	PASS_MIN:
-		INC BH
-		SUB BL, 100d
+	PASS_SEC:
+		INC LAST_SEC
+		SUB LAST_MS, 100d
+		CMP LAST_SEC, 60d
+		JGE PASS_MIN
 		JMP _DELAY
 	
+	PASS_MIN:
+		INC LAST_MIN
+		SUB LAST_SEC, 60d
+		CMP LAST_MIN, 60d
+		JGE PASS_HOUR
+		JMP _DELAY
+		
+	PASS_HOUR:
+		INC LAST_HOUR
+		SUB LAST_MIN, 60d
+		JMP _DELAY
+		
 DELAY ENDP
 
 MOVE_NAVES_INIMIGAS PROC
