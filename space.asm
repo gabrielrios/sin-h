@@ -52,7 +52,9 @@ POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d
 
 
 POS_NAVES_INIMIGAS_Y    DB      01d, 03d, 05d, 7d, 9d
+MAX_INIMIGO				DB		55d
 NUM_INIMIGO             DB      55d
+INIMIGO_LINHA			DB		11d
 AUX_MOV                 DB      ?
 LINHA                   DB      00h
 MAX_LINHA               DB      05d
@@ -443,7 +445,7 @@ MOVE_NAVES_INIMIGAS PROC
     PUSH BX
     PUSH CX
     
-    MOV CL, 55h ;NUM_INIMIGO
+    MOV CL, MAX_INIMIGO ;NUM_INIMIGO
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     
     MOV DL, [POS_NAVES_INIMIGAS_X] ;inimigo mais a esquerda
@@ -571,13 +573,13 @@ DESENHA_NAVE_INIMIGA PROC
 	PUSH BX
 	PUSH AX
 
-    MOV CL, 11h ;NUM_INIMIGO por linha
+    MOV CL, INIMIGO_LINHA;NUM_INIMIGO por linha
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     MOV AL, 00h
     MOV LINHA, 00h
     
     OUTTER_LOOP:
-        MOV CL, 11d ;NUM_INIMIGO por linha
+        MOV CL, INIMIGO_LINHA;NUM_INIMIGO por linha
         DRAW_ENEMY:    
             MOV DL, [BX]
             MOV AUX_MOV, DL
@@ -785,21 +787,21 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 		PUSH BX
 		PUSH CX
 		
-		MOV BX, OFFSET POS_NAVES_INIMIGAS_X		; se atingiu y verificar x
+		MOV BX, OFFSET POS_NAVES_INIMIGAS_X
 		MOV AX, 0000h
 		MOV CL, LINHA
 		MULT:
 			ADD AL, 11d
 			LOOP MULT
-		ADD BX, 44d						; posicionando o offset na linha a ser verificada
+		ADD BX, AX
 		MOV CL, 11d
 				
 		L_VERIFICA_X:
 			MOV DL, [BX]
-			CMP DL, TIRO_X				; verifica se o x do tiro é menor ou igual  ao da nave
+			CMP DL, TIRO_X
 			JLE L_ATINGIU_P1
 			L_BACK_VERIFICA_X:
-			INC AX						; incrementa o contado para posicionar o outro vetor na nave atingida
+			INC AX
 			INC BX
 			LOOP L_VERIFICA_X
 		
@@ -810,10 +812,10 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 		JMP L_FIM_VERIFICA
 		
 		L_ATINGIU_P1:
-			ADD DL, 03d					; soma a posição x da nave com sua largura
-			CMP DL, TIRO_X				; verifica se o x do tiro é maior ou igual a soma anterior
-			JGE L_ATINGIU				; atingiu destroi a nave
-			JMP L_BACK_VERIFICA_X		; volta para verificar as proximas
+			ADD DL, 03d
+			CMP DL, TIRO_X
+			JGE L_ATINGIU
+			JMP L_BACK_VERIFICA_X
 
 	L_ATINGIU:
 		PUSH BX
@@ -824,10 +826,10 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 		
 		MOV DL, " "
 		
-		CMP [BX], DL					; se a nava atingida já foi destruida não faz nada
+		CMP [BX], DL
 		JE L_FAZ_NADA
-		MOV [BX], DL					; destroi a nave
-		MOV TIROS, 00h					; destroi o tiro
+		MOV [BX], DL
+		MOV TIROS, 00h
 				
 		L_FAZ_NADA:						
 		POP BX
