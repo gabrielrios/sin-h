@@ -22,28 +22,36 @@ NUMERO_VIDAS            DB      03d
 
 ;TIROS
 TIRO                    DB      0BAh, "$"
-MAX_TIROS               DB      1d
-NUM_TIROS               DB      0d
-TIROS                   DB      00d, 00d, 00d, 00d, 00d	
-TIROS_X                 DB      00d, 10d, 20d, 30d, 40d
-TIROS_Y                 DB      20d, 20d, 20d, 20d, 20d
-TMP_TIRO_X              DB      ?
-TMP_TIRO_y              DB      ?
-
-Z                       DB      20d
+TIROS                   DB      00d
+TIRO_X  	            DB      00d
+TIRO_Y	                DB      20d
 
 ;INIMIGO
-OCTOPUS_UPPER           DB      220,219,219,220, "$"
-OCTOPUS_LOWER           DB      95,47,92,95, "$"
+OCTOPUS					DB		47,219,219,92,"$"
+;OCTOPUS_UPPER           DB      220,219,219,220, "$"
+;OCTOPUS_LOWER           DB      95,47,92,95, "$"
 CRAB_UPPER              DB      192,219,219,217, "$"
-CRAB_LOWER              DB      " ",39,96, "$"
-SQUID_UPPER             DB      ' ',220,219,220, "$"
+;CRAB_LOWER              DB      " ",39,96, "$"
+;SQUID_UPPER             DB      ' ',220,219,220, "$"
 SQUID_LOWER             DB      ' ',201,202,187, "$"
 DIR_NAVE_INIMIGA		DB		'D'
-TIPO_NAVE_INIMIGA       DB      'S','S','S','S','S','S','S','S','S','S','S', 'C','C','C','C','C','C','C','C','C','C','C', 'C','C','C','C','C','C','C','C','C','C','C', 'O','O','O','O','O','O','O','O','O','O','O', 'O','O','O','O','O','O','O','O','O','O','O'
-TMP_TIPO                DB      'O'
-POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d, 00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
-POS_NAVES_INIMIGAS_Y    DB      01d, 04d, 07d, 10d, 13d
+
+; 'matriz' do tipo dos inimigos
+TIPO_NAVE_INIMIGA       DB      'S','S','S','S','S','S','S','S','S','S','S'
+						DB		'C','C','C','C','C','C','C','C','C','C','C'
+						DB		'C','C','C','C','C','C','C','C','C','C','C'
+						DB		'O','O','O','O','O','O','O','O','O','O','O'
+						DB		'O','O','O','O','O','O','O','O','O','O','O'
+
+; 'matriz' da posição x dos inimibos
+POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+						DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+						DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+						DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+						DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
+
+
+POS_NAVES_INIMIGAS_Y    DB      01d, 03d, 05d, 7d, 9d
 POS_NAVES_INIMIGAS_Y1   DB      02d, 05d, 08d, 11d, 14d
 NUM_INIMIGO             DB      55d
 AUX_MOV                 DB      ?
@@ -132,6 +140,7 @@ MAIN PROC
 	MOV	AX,	@DATA
 	MOV	DS,	AX
 
+	
     ;looping da tela inicial
     CALL TELA_INICIAL	
     
@@ -139,6 +148,9 @@ MAIN PROC
 	GAME_LOOP:
 	    ; condições de parada
 	    CMP NUMERO_VIDAS, 00d
+	    JE FIM_JOGO
+	    
+	    CMP NUM_INIMIGO, 00d
 	    JE FIM_JOGO
 	    
 	    ; entrada de dados
@@ -149,6 +161,7 @@ MAIN PROC
         ;lógica
         CALL MOVE_NAVES_INIMIGAS
         CALL MOVE_TIROS
+        ;CALL VERIFICA_TIRO_ATINGIU_INIMIGO
         
         PAUSA:
         ; Desenho
@@ -172,10 +185,10 @@ LIMPA_TUDO PROC
     PUSH BX
     
 	MOV CX,25d
-    MOV TOPMOST, 0d
+    MOV TOPMOST, 0d				; posiciona o cursor no canto superior esquerdo
 	LIMPA_P:
 		MOV AH,2
-    	MOV DL,LEFTMOST
+    	MOV DL,LEFTMOST			;move o cursor entre as linhas apagando-as
     	MOV DH,TOPMOST
     	MOV BH,0
     	INT 10h
@@ -195,7 +208,6 @@ LIMPA_TUDO PROC
 LIMPA_TUDO ENDP
 
 DESENHA PROC
-    ;CALL DEBUG_MSG
     CALL LIMPA_TUDO
 	CALL DESENHA_TIROS
     CALL DESENHA_NAVE
@@ -444,7 +456,7 @@ MOVE_NAVES_INIMIGAS PROC
     MOV DL, [POS_NAVES_INIMIGAS_X+10] ;inimigo mais a direita
     MOV AUX_MOV, DL
     
-    CMP AUX_MOV, 73D
+    CMP AUX_MOV, 73D					;VERIFICA SE CHEGOU NO LADO DIREITO
     JE NAVE_INIMIGA_ESQ
 
     JMP MOVE_ALL    	
@@ -459,7 +471,7 @@ MOVE_NAVES_INIMIGAS PROC
     	MOV DIR_NAVE_INIMIGA, DL        ;desce
     	
     DESCE:
-        CMP [POS_NAVES_INIMIGAS_Y1+4], 20d
+        CMP [POS_NAVES_INIMIGAS_Y+4], 20d
         JE MOVE_ALL
         CALL DESCE_INIMIGOS
     	
@@ -491,16 +503,6 @@ DESCE_INIMIGOS PROC
         MOV [BX], DL
         INC BX
         LOOP DESCE_Y
-    
-    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
-    MOV CL, MAX_LINHA
-    
-    DESCE_Y1:
-        MOV DL, [BX]
-        INC DL
-        MOV [BX], DL
-        INC BX
-        LOOP DESCE_Y1
        
     POP DX 
     POP CX
@@ -597,6 +599,8 @@ DESENHA_NAVE_INIMIGA PROC
             JMP DESENHADO
             
             SQUID:
+            CMP DL, 'S'          ;DESENHA CRAB
+            JNE DESENHADO
             CALL DESENHA_SQUID  ;DESENHA SQUID
             
             DESENHADO:
@@ -634,13 +638,7 @@ DESENHA_OCTOPUS PROC
     ADD BX, DX
     
     GOTOXY AUX_MOV [BX]
-    WRITE_STRING OCTOPUS_UPPER
-    
-    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
-    ADD BX, DX
-    
-    GOTOXY AUX_MOV [BX]
-    WRITE_STRING OCTOPUS_LOWER
+    WRITE_STRING OCTOPUS
     
     POP BX
     POP DX
@@ -660,12 +658,6 @@ DESENHA_CRAB PROC
     GOTOXY AUX_MOV [BX]
     WRITE_STRING CRAB_UPPER
     
-    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
-    ADD BX, DX
-    
-    GOTOXY AUX_MOV [BX]
-    WRITE_STRING CRAB_LOWER
-    
     POP BX
     POP DX
     
@@ -683,12 +675,6 @@ DESENHA_SQUID PROC
     ADD BX, DX
     
     GOTOXY AUX_MOV [BX]
-    WRITE_STRING SQUID_UPPER
-    
-    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y1
-    ADD BX, DX
-    
-    GOTOXY AUX_MOV [BX]
     WRITE_STRING SQUID_LOWER
     
     POP BX
@@ -702,26 +688,16 @@ DESENHA_TIROS PROC
     PUSH CX
     PUSH DX
     
-    MOV CL, MAX_TIROS
-    MOV BX, OFFSET TIROS
+    MOV DL, TIROS        ; item do array para var auxiliar
+    MOV AUX_MOV, DL
     
-    L_DESENHA_TIROS:
-
-        MOV DL, [BX]        ; item do array para var auxiliar
-        MOV AUX_MOV, DL
-    
-        CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
-        JE L_NAO_DESENHA_TIRO
+    CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
+    JE L_NAO_DESENHA_TIRO
         
-        CALL FIND_TIRO_X ; pega a posicao x do tiro
-        CALL FIND_TIRO_Y ; pega o y do tiro
+    GOTOXY TIRO_X TIRO_Y
+    WRITE_STRING TIRO
         
-        GOTOXY TMP_TIRO_X TMP_TIRO_Y
-        WRITE_STRING TIRO
-        
-        L_NAO_DESENHA_TIRO:
-            INC BX
-            LOOP L_DESENHA_TIROS
+    L_NAO_DESENHA_TIRO:
        
     POP DX
     POP CX
@@ -729,83 +705,25 @@ DESENHA_TIROS PROC
     RET
 DESENHA_TIROS ENDP
 
-; PEGA A POSICAO Y DO TIRO ATUAL
-FIND_TIRO_Y PROC
-    PUSH BX
-    PUSH DX
-    
-    
-    MOV BX, OFFSET TIROS_Y
-    MOV DL, MAX_TIROS
-    SUB DL, CL
-    L_FIND_TIRO_POS_Y:    ; laco percorre o array de posicoes ate o tiro atual pra pegar o valor
-        CMP DL, 00h
-        JE L_FOUND_TIRO_POS_Y
-        INC BX
-        DEC DL
-        JMP L_FIND_TIRO_POS_Y
-
-    L_FOUND_TIRO_POS_Y: 
-    MOV DL, [BX]       
-    MOV TMP_TIRO_Y, DL
-    
-    POP DX
-    POP BX
-    RET
-FIND_TIRO_Y ENDP
-
-; PEGA A POSICAO X DO TIRO ATUAL
-FIND_TIRO_X PROC
-    PUSH BX
-    PUSH DX
-    
-    MOV BX, OFFSET TIROS_X
-    MOV DL, MAX_TIROS
-    SUB DL, CL
-    L_FIND_TIRO_POS_X:
-        CMP DL, 00h
-        JE L_FOUND_TIRO_POS_X
-        INC BX
-        DEC DL
-        JMP L_FIND_TIRO_POS_X
-
-    L_FOUND_TIRO_POS_X: 
-    MOV DL, [BX]       
-    MOV TMP_TIRO_X, DL
-    
-    POP DX
-    POP BX
-    RET
-FIND_TIRO_X ENDP
-
 ATIRAR PROC
     PUSH CX
     PUSH BX
     PUSH DX
     
-
-    MOV DL, MAX_TIROS
-    CMP DL, NUM_TIROS
+    MOV DL, TIROS
+    CMP DL, 01h
     JE L_NAO_ATIRA
     
-    MOV CL, NUM_TIROS
-    MOV BX, OFFSET TIROS_X    ; posiciona o tiro no eixo x
-    ADD BX, CX
     MOV DL, POS_NAVE_X
     ADD DL, 02d    ; normalizando posição tiro
-    MOV [BX], DL
+    MOV TIRO_X, DL
     
-    MOV BX, OFFSET TIROS_Y   ; posiciona o tiro no eixo x
-    ADD BX, CX
     MOV DL, 21d
-    MOV [BX],DL    
+    MOV TIRO_Y,DL    
     
-    MOV BX, OFFSET TIROS
-    ADD BX, CX
     MOV DL, 01h
-    MOV [BX], DL
-    INC NUM_TIROS
-        
+    MOV TIROS, DL
+            
     L_NAO_ATIRA:
         POP DX
         POP BX
@@ -819,39 +737,20 @@ MOVE_TIROS PROC
     PUSH CX
     PUSH DX
     
-    MOV CL, MAX_TIROS
-    MOV BX, OFFSET TIROS
-    MOV AX, 0000h
+    MOV DL, TIROS        ; item do array para var auxiliar
+    MOV AUX_MOV, DL
     
-    L_MOVE_TIROS:
-        MOV DL, [BX]        ; item do array para var auxiliar
-        MOV AUX_MOV, DL
-    
-        CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
-        JE L_NAO_MOVE_TIRO
+    CMP AUX_MOV, 00d           ; verifica se o tiro deve ser desenhado ou não
+    JE L_NAO_MOVE_TIRO
         
-        CALL FIND_TIRO_Y ; pega o y do tiro
-        DEC TMP_TIRO_Y
-        PUSH BX
-        MOV BX, OFFSET TIROS_Y
-        ADD BX, AX
-        MOV DL, TMP_TIRO_Y
-        MOV [BX], DL        
-        POP BX
+    DEC TIRO_Y
         
-        ; se o tiro chegou na borda da tela
-        CMP TMP_TIRO_Y, 00h
-        JNE L_NAO_MOVE_TIRO
+    ; se o tiro chegou na borda da tela
+    CMP TIRO_Y, 00h
+    JNE L_NAO_MOVE_TIRO
+    MOV TIROS, 00h
         
-        MOV AUX_MOV, 00h
-        MOV DL, AUX_MOV
-        MOV [BX], DL
-        DEC NUM_TIROS
-        
-        L_NAO_MOVE_TIRO:
-            INC AX
-            INC BX
-            LOOP L_MOVE_TIROS
+    L_NAO_MOVE_TIRO:
       
     POP DX  
     POP CX   
@@ -860,6 +759,19 @@ MOVE_TIROS PROC
     RET
 MOVE_TIROS ENDP
 
+VERIFICA_TIRO_ATINGIU_INIMIGO PROC
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+	
+	;MOV
+	
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+VERIFICA_TIRO_ATINGIU_INIMIGO ENDP
 
 TELA_INICIAL PROC
     PUSH DX
