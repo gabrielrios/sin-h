@@ -52,7 +52,6 @@ POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d
 
 
 POS_NAVES_INIMIGAS_Y    DB      01d, 03d, 05d, 7d, 9d
-POS_NAVES_INIMIGAS_Y1   DB      02d, 05d, 08d, 11d, 14d
 NUM_INIMIGO             DB      55d
 AUX_MOV                 DB      ?
 LINHA                   DB      00h
@@ -161,7 +160,7 @@ MAIN PROC
         ;lógica
         CALL MOVE_NAVES_INIMIGAS
         CALL MOVE_TIROS
-        ;CALL VERIFICA_TIRO_ATINGIU_INIMIGO
+    	CALL VERIFICA_TIRO_ATINGIU_INIMIGO
         
         PAUSA:
         ; Desenho
@@ -444,13 +443,13 @@ MOVE_NAVES_INIMIGAS PROC
     PUSH BX
     PUSH CX
     
-    MOV CL, NUM_INIMIGO
+    MOV CL, 55h ;NUM_INIMIGO
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     
     MOV DL, [POS_NAVES_INIMIGAS_X] ;inimigo mais a esquerda
     MOV AUX_MOV, DL
     
-    CMP AUX_MOV, 0D
+    CMP AUX_MOV, 0D					;VERIFICA SE CHEGOU NO LADRO ESQUERDO
     JE NAVE_INIMIGA_DIR
     
     MOV DL, [POS_NAVES_INIMIGAS_X+10] ;inimigo mais a direita
@@ -572,17 +571,17 @@ DESENHA_NAVE_INIMIGA PROC
 	PUSH BX
 	PUSH AX
 
-    MOV CL, 11h ;NUM_INIMIGO
+    MOV CL, 11h ;NUM_INIMIGO por linha
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     MOV AL, 00h
     MOV LINHA, 00h
     
     OUTTER_LOOP:
-        MOV CL, 11d ;NUM_INIMIGO
+        MOV CL, 11d ;NUM_INIMIGO por linha
         DRAW_ENEMY:    
             MOV DL, [BX]
             MOV AUX_MOV, DL
-    
+                    
             PUSH BX
             MOV BX, OFFSET TIPO_NAVE_INIMIGA
             ADD BX, AX
@@ -765,12 +764,85 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	PUSH CX
 	PUSH DX
 	
-	;MOV
+	MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+	MOV CL, MAX_LINHA
+	MOV LINHA, 00d
+
+	CMP TIROS, 00d
+	JE L_FIM_VERIFICA
+
+	L_VERIFICA_Y:				; verifica se o y do tiro coincide com o y das naves
+		MOV DL, [BX]
+		CMP TIRO_Y, DL
+		JE L_ATINGIU_Y			; se é igual atingiu no eixo x
+		INC BX
+		INC LINHA				; vai pra proxima linha, usado pra posicionar o vetor x
+		LOOP L_VERIFICA_Y	
 	
+	JMP L_FIM_VERIFICA
+	
+	L_ATINGIU_Y:
+		PUSH BX
+		PUSH CX
+		
+		MOV BX, OFFSET POS_NAVES_INIMIGAS_X		; se atingiu y verificar x
+		MOV AX, 0000h
+		MOV CL, LINHA
+		MULT:
+			ADD AL, 11d
+			LOOP MULT
+		ADD BX, 44d						; posicionando o offset na linha a ser verificada
+		MOV CL, 11d
+				
+		L_VERIFICA_X:
+			MOV DL, [BX]
+			CMP DL, TIRO_X				; verifica se o x do tiro é menor ou igual  ao da nave
+			JLE L_ATINGIU_P1
+			L_BACK_VERIFICA_X:
+			INC AX						; incrementa o contado para posicionar o outro vetor na nave atingida
+			INC BX
+			LOOP L_VERIFICA_X
+		
+		L_BACK_TO_CLOSE:	
+		POP BX
+		POP CX	
+	
+		JMP L_FIM_VERIFICA
+		
+		L_ATINGIU_P1:
+			ADD DL, 03d					; soma a posição x da nave com sua largura
+			CMP DL, TIRO_X				; verifica se o x do tiro é maior ou igual a soma anterior
+			JGE L_ATINGIU				; atingiu destroi a nave
+			JMP L_BACK_VERIFICA_X		; volta para verificar as proximas
+
+	L_ATINGIU:
+		PUSH BX
+		PUSH CX
+		
+		MOV BX, OFFSET TIPO_NAVE_INIMIGA
+		ADD BX, AX
+		
+		MOV DL, " "
+		
+		CMP [BX], DL					; se a nava atingida já foi destruida não faz nada
+		JE L_FAZ_NADA
+		MOV [BX], DL					; destroi a nave
+		MOV TIROS, 00h					; destroi o tiro
+				
+		L_FAZ_NADA:						
+		POP BX
+		POP CX
+		
+
+		JMP L_BACK_TO_CLOSE
+		
+
+	L_FIM_VERIFICA:	
 	POP DX
 	POP CX
 	POP BX
 	POP AX
+	RET
 VERIFICA_TIRO_ATINGIU_INIMIGO ENDP
 
 TELA_INICIAL PROC
