@@ -17,8 +17,12 @@ NAVE_JOGADOR_FREN		DB		' ',' ',220,"$"
 NAVE_JOGADOR_TRAS		DB		219,219,219,219,219, "$" 
 
 POS_NAVE_X				DB		42		;Posição Inicial do carro na tela
+NUMERO_VIDAS			DB		33h
+D_SCORE					DB		00h
+C_SCORE					DB		00h
+M_SCORE					DB		00h
+DM_SCORE				DB		00h
 
-NUMERO_VIDAS            DB      03d
 
 ;TIROS
 TIRO                    DB      0BAh, "$"
@@ -28,11 +32,7 @@ TIRO_Y	                DB      20d
 
 ;INIMIGO
 OCTOPUS					DB		47,219,219,92,"$"
-;OCTOPUS_UPPER           DB      220,219,219,220, "$"
-;OCTOPUS_LOWER           DB      95,47,92,95, "$"
 CRAB_UPPER              DB      192,219,219,217, "$"
-;CRAB_LOWER              DB      " ",39,96, "$"
-;SQUID_UPPER             DB      ' ',220,219,220, "$"
 SQUID_LOWER             DB      ' ',201,202,187, "$"
 DIR_NAVE_INIMIGA		DB		'D'
 
@@ -74,6 +74,12 @@ LAST_MIN				DB		?
 LAST_SEC				DB		?
 LAST_MS					DB		?
 LAST_HOUR				DB		?
+LEVEL					DB		00
+
+; hud
+STR_SCORE						DB	"PONT: $"
+STR_LIVES						DB  "VIDAS: $"
+
 
 ;Tela inicial
 TXT_JOGO                DB "         ____    ____    ______  ____     ____      ", CR, LF
@@ -140,19 +146,20 @@ STR_SAIR                DB CR, LF, "        [5] SAIR$"
 MAIN PROC 
 	MOV	AX,	@DATA
 	MOV	DS,	AX
-
 	
     ;looping da tela inicial
+    
     CALL TELA_INICIAL	
     
+    INICIO_JOGO:
 	CALL DESENHA_FUNDO_PADRAO
 	GAME_LOOP:
 	    ; condições de parada
-	    CMP NUMERO_VIDAS, 00d
+	    CMP NUMERO_VIDAS, 30h
 	    JE FIM_JOGO
 	    
 	    CMP NUM_INIMIGO, 00d
-	    JE FIM_JOGO
+	    JE FIM_JOGO_VITORIA
 	    
 	    ; entrada de dados
 	    CALL KBHIT
@@ -174,8 +181,14 @@ MAIN PROC
 	JMP GAME_LOOP
 	
 	FIM_JOGO:
-	MOV AH, 4Ch
-	INT 21h
+		CALL TELA_INICIAL
+		JMP INICIO_JOGO
+		
+	FIM_JOGO_VITORIA:
+		INC LEVEL
+		CALL INICIA_JOGO
+		JMP INICIO_JOGO
+
 
 MAIN ENDP
 
@@ -210,11 +223,65 @@ LIMPA_TUDO ENDP
 
 DESENHA PROC
     CALL LIMPA_TUDO
-	CALL DESENHA_TIROS
+	CALL DESENHA_HUD
+    CALL DESENHA_TIROS
     CALL DESENHA_NAVE
 	CALL DESENHA_NAVE_INIMIGA
 	RET
 DESENHA ENDP
+
+DESENHA_HUD PROC
+	push ax
+	push bx
+	push cx
+	push dx
+
+	MOV AH,2
+	MOV DL,0
+	MOV DH,0
+	MOV BH,0
+	INT 10h
+
+
+	mov ah, 09
+	lea dx, STR_SCORE
+	int 21h
+		
+	mov ah, 02
+	mov dl, m_score
+	add dl, 30h
+	int 21h
+	mov dl, c_score
+	add dl, 30h
+	int 21h
+	mov dl, d_score
+	add dl, 30h
+	int 21h
+	mov dl, 30h
+	int 21h
+	
+	MOV AH,2
+	MOV DL,60
+	MOV DH,0
+	MOV BH,0
+	INT 10h
+
+
+	mov ah, 09
+	lea dx, STR_LIVES
+	int 21h
+	
+	mov ah, 02
+	mov dl, numero_vidas
+	int 21h
+	
+	pop dx
+	pop cx
+	pop dx
+	pop ax
+	RET
+	
+DESENHA_HUD ENDP
 
 KBHIT PROC
 	PUSH AX
@@ -230,14 +297,14 @@ KBHIT PROC
 		INT 16h	;se alguma tecla foi pressionada lê o caracter pressionado
 				
 		CMP	AL,TECLA_ESC
-		JE FIM_JOGO
+		JE TMP_FIM_JOGO
 		
 		CMP AL, CR          ; Pausa o jogo
 		JE PAUSE_SWITCH
 		
 		CMP PAUSED, 'P' ; Verifica se está pausado, verdadeiro termina o kbhit
 		JE KBHIT_END
-			
+		
 		CMP AH,'M'
 		JE ACERTA_NAVE_DIREITA
 		
@@ -283,6 +350,9 @@ KBHIT PROC
 		        MOV PAUSED, 'J'
 		    JMP KBHIT_END
 	    
+		TMP_FIM_JOGO:
+			JMP FIM_JOGO
+		    
 		L_ATIROU:
 		    CALL ATIRAR
 			    
@@ -391,7 +461,7 @@ DELAY PROC
 	MOV AH, 2ch	
 	INT 21h
 	
-	ADD DL, 20d			;faça esperar 20ms
+	ADD DL, 10d			;faça esperar 20ms
 	MOV LAST_MS, DL
 	MOV LAST_SEC, DH
 	MOV LAST_MIN, CL
@@ -771,7 +841,8 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	MOV LINHA, 00d
 
 	CMP TIROS, 00d
-	JE L_FIM_VERIFICA
+	JNE L_VERIFICA_Y
+	JMP L_FIM_VERIFICA
 
 	L_VERIFICA_Y:				; verifica se o y do tiro coincide com o y das naves
 		MOV DL, [BX]
@@ -824,12 +895,38 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 		MOV BX, OFFSET TIPO_NAVE_INIMIGA
 		ADD BX, AX
 		
-		MOV DL, " "
+		MOV DL, "O"
+		CMP [BX], DL
+		JNE L_PT_CRAB
+		ADD D_SCORE, 1d
+		JMP PONTUADO
 		
+		L_PT_CRAB:
+		MOV DL, "C"
+		CMP [BX], DL
+		JNE L_PT_SQUID
+		ADD D_SCORE, 2d
+		JMP PONTUADO
+		
+		L_PT_SQUID:
+		MOV DL, "S"
+		CMP [BX], DL
+		JNE PONTUADO
+		ADD D_SCORE, 3d
+		JMP PONTUADO		
+		
+		PONTUADO:
+		CMP D_SCORE, 10d
+		jge inc_c_score
+		back_pontuado:
+		
+		MOV DL, " "
 		CMP [BX], DL
 		JE L_FAZ_NADA
+		
 		MOV [BX], DL
 		MOV TIROS, 00h
+		DEC NUM_INIMIGO
 				
 		L_FAZ_NADA:						
 		POP BX
@@ -838,6 +935,17 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 
 		JMP L_BACK_TO_CLOSE
 		
+		inc_c_score:
+			inc c_score
+			sub d_score, 10d
+			cmp c_score, 10d
+			jge inc_m_score
+			jmp back_pontuado
+			
+		inc_m_score:
+			inc m_score
+			sub c_score, 10d
+			jmp back_pontuado
 
 	L_FIM_VERIFICA:	
 	POP DX
@@ -921,10 +1029,80 @@ TELA_INICIAL PROC
         INT 21h
     
     FIM_TELA:
+    	CALL INICIA_JOGO
+    
         POP AX
         POP DX
     RET
 TELA_INICIAL ENDP
+
+INICIA_JOGO PROC
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+	
+	mov num_inimigo, 55
+	mov DIR_NAVE_INIMIGA, 'D'
+
+
+	mov POS_NAVE_X, 42	
+	
+	mov bx, offset tipo_nave_inimiga
+	mov cx, 11
+	l_add_squids:
+		mov dl, 'S'
+		mov [bx], dl
+		inc bx
+		loop l_add_squids
+		
+	mov cx, 22
+	l_add_crabs:
+		mov dl, 'C'
+		mov [bx], dl
+		inc bx
+		loop l_add_crabs
+		
+	mov cx, 22
+	l_add_octopus:
+		mov dl, 'O'
+		mov [bx], dl
+		inc bx
+		loop l_add_octopus
+
+	mov bx, offset pos_naves_inimigas_y
+	mov cl, max_linha
+	mov dl, 01
+	ADD DL, LEVEL
+	
+	l_set_y_position:
+		mov [bx], dl
+		add dl, 02
+		inc bx
+		loop l_set_y_position
+		
+	mov bx, offset pos_naves_inimigas_x
+	mov ax, 05h
+	
+	l_outter_set_x_position:
+		mov cl, 11d
+		mov dl, 00d
+		
+		l_inner_set_x_position:
+			mov [bx], dl
+			add dl, 05
+			inc bx
+			loop l_inner_set_x_position
+		
+		dec ax
+		jnz l_outter_set_x_position
+	
+	POP DX
+	POP CX
+	POP BX
+	POP AX
+	ret
+INICIA_JOGO ENDP
 
 DEBUG_MSG PROC
     PUSH CX
