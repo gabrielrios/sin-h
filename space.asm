@@ -40,11 +40,11 @@ SPACESHIP_DIR			DB		'D'
 SPACESHIP_VISIBLE		DB		00d
 
 ; 'matriz' do tipo dos inimigos
-TIPO_NAVE_INIMIGA       DB      ' ','S','S','S','S','S','S','S','S','S','S'
-						DB		' ','C','C','C','C','C','C','C','C','C','C'
-						DB		' ','C','C','C','C','C','C','C','C','C','C'
-						DB		' ','O','O','O','O','O','O','O','O','O','O'
-						DB		' ','O','O','O','O','O','O','O','O','O','O'
+TIPO_NAVE_INIMIGA       DB      'S','S','S','S','S','S','S','S','S','S','S'
+						DB		'C','C','C','C','C','C','C','C','C','C','C'
+						DB		'C','C','C','C','C','C','C','C','C','C','C'
+						DB		'O','O','O','O','O','O','O','O','O','O','O'
+						DB		'O','O','O','O','O','O','O','O','O','O','O'
 
 ; 'matriz' da posição x dos inimibos
 POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
@@ -62,7 +62,8 @@ AUX_MOV                 DB      ?
 LINHA                   DB      00h
 MAX_LINHA               DB      05d
 LEFTMOST_ENEMY_X        DB      ?
-RIGHTMOST_ENEMY_X        DB      ?
+RIGHTMOST_ENEMY_X       DB      ?
+BOTTOMOST_ENEMY_Y       DB      ?    
 
 
 ; Flags
@@ -169,7 +170,8 @@ MAIN PROC
 	    CMP NUMERO_VIDAS, 30h
 	    JE FIM_JOGO
 	    
-	    ;CMP [POS_NAVES_INIMIGAS_Y+4], 21d
+        ;CALL ACHA_INIMIGO_EMBAIXO
+        ;CMP BOTTOMOST_ENEMY_Y, 21d
 	    ;JE FIM_JOGO
 	    
 	    CMP NUM_INIMIGO, 00d
@@ -498,7 +500,7 @@ DELAY PROC
 	MOV AH, 2ch	
 	INT 21h
 	
-	ADD DL, 20d			;faça esperar 20ms
+	ADD DL, 10d			;faça esperar 10ms
 	MOV LAST_MS, DL
 	MOV LAST_SEC, DH
 	MOV LAST_MIN, CL
@@ -641,7 +643,9 @@ MOVE_NAVES_INIMIGAS PROC
     	MOV DIR_NAVE_INIMIGA, DL        ;desce
     	
     DESCE:
-        CMP [POS_NAVES_INIMIGAS_Y+4], 21d
+        CALL ACHA_INIMIGO_EMBAIXO
+        CMP BOTTOMOST_ENEMY_Y, 21d
+        ;CMP [POS_NAVES_INIMIGAS_Y+4], 21d
         JE MOVE_ALL
         CALL DESCE_INIMIGOS
     	
@@ -1080,6 +1084,51 @@ random proc
 	mov seed,ax
 	ret
 random endp
+
+ACHA_INIMIGO_EMBAIXO PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV BX, OFFSET TIPO_NAVE_INIMIGA
+    MOV AX, 0000h
+    MOV AL, MAX_INIMIGO
+    SUB AX, 01d
+    ADD BX, AX
+    MOV CL, MAX_INIMIGO
+    
+    BAIXO_ACHA_INIMIGO_LOOP:
+        MOV DL, [BX]
+        CMP DL, " "
+        JNE BAIXO_ACHOU
+        DEC BX
+        DEC AX
+        LOOP BAIXO_ACHA_INIMIGO_LOOP
+    
+    BAIXO_ACHOU:
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    MOV CX, 00h
+    CMP AL, 11d
+    JLE SEM_DIV
+    DIV_LOOP:
+        SUB AL, 11d
+        INC CX
+        CMP AL, 11d
+        JGE DIV_LOOP
+    SEM_DIV:
+    ADD BX, CX
+    MOV DL, [BX]
+    MOV BOTTOMOST_ENEMY_Y, DL
+    
+    
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+ACHA_INIMIGO_EMBAIXO ENDP
+
 
 ACHA_INIMIGO_DIREITA PROC
     PUSH AX
