@@ -40,11 +40,11 @@ SPACESHIP_DIR			DB		'D'
 SPACESHIP_VISIBLE		DB		00d
 
 ; 'matriz' do tipo dos inimigos
-TIPO_NAVE_INIMIGA       DB      'S','S','S','S','S','S','S','S','S','S','S'
-						DB		'C','C','C','C','C','C','C','C','C','C','C'
-						DB		'C','C','C','C','C','C','C','C','C','C','C'
-						DB		'O','O','O','O','O','O','O','O','O','O','O'
-						DB		'O','O','O','O','O','O','O','O','O','O','O'
+TIPO_NAVE_INIMIGA       DB      ' ','S','S','S','S','S','S','S','S','S','S'
+						DB		' ','C','C','C','C','C','C','C','C','C','C'
+						DB		' ','C','C','C','C','C','C','C','C','C','C'
+						DB		' ','O','O','O','O','O','O','O','O','O','O'
+						DB		' ','O','O','O','O','O','O','O','O','O','O'
 
 ; 'matriz' da posição x dos inimibos
 POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
@@ -61,6 +61,9 @@ INIMIGO_LINHA			DB		11d
 AUX_MOV                 DB      ?
 LINHA                   DB      00h
 MAX_LINHA               DB      05d
+LEFTMOST_ENEMY_X        DB      ?
+RIGHTMOST_ENEMY_X        DB      ?
+
 
 ; Flags
 PAUSED                  DB      'J'
@@ -495,7 +498,7 @@ DELAY PROC
 	MOV AH, 2ch	
 	INT 21h
 	
-	ADD DL, 10d			;faça esperar 20ms
+	ADD DL, 20d			;faça esperar 20ms
 	MOV LAST_MS, DL
 	MOV LAST_SEC, DH
 	MOV LAST_MIN, CL
@@ -557,12 +560,7 @@ RANDOM_SPACESHIP PROC
 	JMP L_NOT_OK
 	
 	OK1:
-		;CMP AL, 37h
-		;JGE OK2
-		;JMP L_NOT_OK
-	
-	;OK2:
-		MOV SPACESHIP_VISIBLE, 01h
+    	MOV SPACESHIP_VISIBLE, 01h
 		
 	L_NOT_OK:
 	POP DX
@@ -623,16 +621,12 @@ MOVE_NAVES_INIMIGAS PROC
     MOV CL, MAX_INIMIGO ;NUM_INIMIGO
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     
-    MOV DL, [POS_NAVES_INIMIGAS_X] ;inimigo mais a esquerda
-    MOV AUX_MOV, DL
-    
-    CMP AUX_MOV, 0D					;VERIFICA SE CHEGOU NO LADRO ESQUERDO
+    CALL ACHA_INIMIGO_ESQUERDA
+    CMP LEFTMOST_ENEMY_X, 0D					;VERIFICA SE CHEGOU NO LADRO ESQUERDO
     JE NAVE_INIMIGA_DIR
     
-    MOV DL, [POS_NAVES_INIMIGAS_X+10] ;inimigo mais a direita
-    MOV AUX_MOV, DL
-    
-    CMP AUX_MOV, 73D					;VERIFICA SE CHEGOU NO LADO DIREITO
+    CALL ACHA_INIMIGO_DIREITA
+    CMP RIGHTMOST_ENEMY_X, 74D					;VERIFICA SE CHEGOU NO LADO DIREITO
     JE NAVE_INIMIGA_ESQ
 
     JMP MOVE_ALL    	
@@ -1076,6 +1070,98 @@ random proc
 	mov seed,ax
 	ret
 random endp
+
+ACHA_INIMIGO_DIREITA PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+        
+    MOV LINHA, 10d
+    OUTER_ACHA_LOOP:
+        MOV BX, OFFSET TIPO_NAVE_INIMIGA
+        MOV AX, 0000h
+        MOV AL, LINHA
+        ADD BX, AX
+        MOV CL, MAX_LINHA
+        INNER_ACHA_LOOP:
+            MOV DL, [BX]
+            CMP DL, " "
+            JNE ACHOU
+            MOV DL, 11d
+            MOV_BX:
+                INC BX
+                DEC DL
+                CMP DL, 00h
+                JNE MOV_BX
+            LOOP INNER_ACHA_LOOP
+        
+        DEC LINHA
+        CMP LINHA, 00d
+        JE ACHOU
+        JMP OUTER_ACHA_LOOP
+    
+    ACHOU:
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_X
+    MOV AX, 0000h
+    MOV AL, LINHA
+    ADD BX, AX
+    MOV DL, [BX]
+    MOV RIGHTMOST_ENEMY_X, DL
+
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    
+    RET
+ACHA_INIMIGO_DIREITA ENDP
+
+ACHA_INIMIGO_ESQUERDA PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+        
+    MOV LINHA, 00d
+    D_OUTER_ACHA_LOOP:
+        MOV BX, OFFSET TIPO_NAVE_INIMIGA
+        MOV AX, 0000h
+        MOV AL, LINHA
+        ADD BX, AX
+        MOV CL, MAX_LINHA
+        D_INNER_ACHA_LOOP:
+            MOV DL, [BX]
+            CMP DL, " "
+            JNE D_ACHOU
+            MOV DL, 11d
+            D_MOV_BX:
+                INC BX
+                DEC DL
+                CMP DL, 00h
+                JNE D_MOV_BX
+            LOOP D_INNER_ACHA_LOOP
+        
+        INC LINHA
+        CMP LINHA, 11d
+        JE D_ACHOU
+        JMP D_OUTER_ACHA_LOOP
+    
+    D_ACHOU:
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_X
+    MOV AX, 0000h
+    MOV AL, LINHA
+    ADD BX, AX
+    MOV DL, [BX]
+    MOV LEFTMOST_ENEMY_X, DL
+
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    
+    RET
+ACHA_INIMIGO_ESQUERDA ENDP
 
 TELA_INICIAL PROC
     PUSH DX
