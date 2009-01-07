@@ -54,7 +54,7 @@ POS_NAVES_INIMIGAS_X    DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d
 						DB      00d, 05d, 10d, 15d, 20d, 25d, 30d, 35d, 40d, 45d, 50d
 
 
-POS_NAVES_INIMIGAS_Y    DB      01d, 03d, 05d, 7d, 9d
+POS_NAVES_INIMIGAS_Y    DB      02d, 04d, 06d, 8d, 10d
 MAX_INIMIGO				DB		55d
 NUM_INIMIGO             DB      55d
 INIMIGO_LINHA			DB		11d
@@ -70,6 +70,7 @@ MAX_TIROS               DB      5d
 NUM_TIROS               DB      00h
 PTR_TIROS               DB      00h
 TIRO_INIMIGO_ASCII      DB      25d, "$"
+DELAY_INIMIGO           DB      15d
 
 ; Flags
 PAUSED                  DB      'J'
@@ -88,6 +89,9 @@ LAST_MS					DB		?
 LAST_HOUR				DB		?
 LEVEL					DB		00
 SEED					DW		?
+
+LAST_TICKS              DW      ?
+LAST_TICKS_HOUR         DB      ?
 
 ; hud
 STR_SCORE						DB	"PONT: $"
@@ -167,25 +171,29 @@ TXT_GAME_OVER           DB " ____    ______           ____        _____   __  __
 MAIN PROC 
 	MOV	AX,	@DATA
 	MOV	DS,	AX
-	
-    ;looping da tela inicial
-    
-    CALL TELA_INICIAL	
-    
+		
 	MOV AH, 2ch	
 	INT 21h
-	MOV SEED, DX
+	MOV SEED, DX	
+
+    ;looping da tela inicial    
+    CALL TELA_INICIAL	
     
     INICIO_JOGO:
+	
+    CALL GET_TICKS
+	MOV LAST_TICKS, AX
+	MOV LAST_TICKS_HOUR, CH
+	
 	CALL DESENHA_FUNDO_PADRAO
 	GAME_LOOP:
 	    ; condições de parada
 	    CMP NUMERO_VIDAS, 30h
 	    JE FIM_JOGO
 	    
-        ;CALL ACHA_INIMIGO_EMBAIXO
-        ;CMP BOTTOMOST_ENEMY_Y, 21d
-	    ;JE FIM_JOGO
+        CALL ACHA_INIMIGO_EMBAIXO
+        CMP BOTTOMOST_ENEMY_Y, 21d
+	    JE FIM_JOGO
 	    
 	    CMP NUM_INIMIGO, 00d
 	    JE FIM_JOGO_VITORIA
@@ -197,7 +205,8 @@ MAIN PROC
         
         ;lógica	
         CALL RANDOM_TIRO
-        CALL MOVE_NAVES_INIMIGAS
+        CALL VERIFICA_MOVE_NAVES_INIMIGAS
+;        CALL MOVE_NAVES_INIMIGAS
         CALL MOVE_TIROS
     	
     	
@@ -220,7 +229,7 @@ MAIN PROC
         
 		;DELAY :D
 		PUSH BX
-		MOV BX, 10d
+		MOV BX, 05d
 		CALL DELAY
 		POP BX
 		
@@ -262,22 +271,26 @@ LIMPA_TUDO PROC
     PUSH CX
     PUSH DX
     PUSH BX
-    
-	MOV CX,25d
-    MOV TOPMOST, 0d				; posiciona o cursor no canto superior esquerdo
-	LIMPA_P:
-		MOV AH,2
-    	MOV DL,LEFTMOST			;move o cursor entre as linhas apagando-as
-    	MOV DH,TOPMOST
-    	MOV BH,0
-    	INT 10h
-			
-    	MOV AH,9
-    	LEA DX,LINHA_VAZIA
-    	INT 21h
     	
-		INC TOPMOST
-		LOOP LIMPA_P
+    mov ah, 6 ; Use function 6 - clear screen
+    mov al, 0 ; clear whole screen
+    mov bh, 0fh ; use black spaces for clearing
+    mov cx, 0 ; set upper corner value
+    mov dl, 79 ; coord of right of screen
+    mov dh, 24 ; coord of bottom of screen
+    int 10h ; go!
+
+    mov bh, 0ah
+    mov cx, 0000h
+    mov dx, 004Fh
+    int 10h
+    mov cx, 1500h
+    mov dx, 184fh
+    int 10h
+	mov bh, 0ch
+	mov cx, 0100h
+	mov dx, 014fh
+	int 10H
 		
 	POP BX
 	POP DX
@@ -288,7 +301,7 @@ LIMPA_TUDO ENDP
 
 DESENHA PROC
     CALL LIMPA_TUDO
-	CALL DESENHA_HUD
+    CALL DESENHA_HUD
     CALL DESENHA_TIROS
     CALL DESENHA_NAVE
 	CALL DESENHA_NAVE_INIMIGA
@@ -339,7 +352,7 @@ DESENHA_HUD PROC
 	int 21h
 	
 	mov ah, 02
-	mov dl, NUMERO_VIDAS
+	mov dl, numero_vidas
 	int 21h
 	
 	pop dx
@@ -354,8 +367,7 @@ KBHIT PROC
 	PUSH AX
 	PUSH DX
 	
-	INICIO_KBHIT:
-	
+	INICIO_KBHIT:	
 		MOV AH,01h
 		INT 16h 		; Retorna ZF = 0 se uma tecla foi pressionada
 		JZ KBHIT_END 	; salta se ZF = 1, ou seja, se nada foi pressionado 
@@ -368,7 +380,7 @@ KBHIT PROC
 		
 		CMP AL, CR          ; Pausa o jogo
 		JE PAUSE_SWITCH
-		
+			
 		CMP PAUSED, 'P' ; Verifica se está pausado, verdadeiro termina o kbhit
 		JE KBHIT_END
 		
@@ -420,7 +432,7 @@ KBHIT PROC
 	    
 		TMP_FIM_JOGO:
 			JMP FIM_JOGO
-		    
+		
 		L_ATIROU:
 		    CALL ATIRAR
 			    
@@ -490,15 +502,13 @@ DESENHA_RETANGULO MACRO COR_FUNDO,INICIO_LINHA_COLUNA,FIM_LINHA_COLUNA
 ENDM
 
 DESENHA_FUNDO_PADRAO PROC
+    
 	LIMPA_TELA
 	;Fundo
 	DESENHA_RETANGULO 00Ah 0000h 004Fh
 	DESENHA_RETANGULO 00ch 0100h 014fh
 	DESENHA_RETANGULO 00fh 0200h 154fh
 	DESENHA_RETANGULO 00Ah 1600h 184Fh
-	;Caixa do menu principal borda
-	;DESENHA_RETANGULO 001h  020Ah 1646h 
-	;DESENHA_RETANGULO 0CFh  030Bh 1545h 
 	RET
 DESENHA_FUNDO_PADRAO ENDP
 
@@ -517,6 +527,49 @@ ESCONDE_CURSOR PROC
 	RET
 
 ESCONDE_CURSOR ENDP
+
+; retorna horas em CH e restante do horario no ax como CS
+GET_TICKS PROC
+    PUSH BX
+    PUSH DX
+	; Pegando o horario do sistema. [ENTRE PARENTESES SÃO OS VALROES ANTIGOS]
+	; CH = hour				
+	; CL = minute			
+	; DH = second			
+	; DL = 1/100 seconds(ms)
+	MOV AH, 2ch	
+	INT 21h
+	
+	MOV AX, 0000
+	MOV BX, CX
+	mov CX, 0000
+	MOV CL, BL
+	LOOP__:                 ;converte minutos em segundos
+	    ADD AX, 60d
+	    LOOP LOOP__
+    
+    MOV CX, 0000
+    MOV CL, DH              ;soma os segundos ao total
+    ADD AX, CX
+
+    mov ch, bh
+    MOV CL, 10d
+    MOV BX, AX
+    MOV AX, 0000
+    LOOP__2:                ;converte os segundo em cs
+        ADD AX, BX
+        dec cl
+        jnz loop__2
+        ;LOOP LOOP__2
+	
+    mov dh, 00h
+	ADD AX, DX             ; adicionando os ms
+	
+	
+	POP DX
+	POP BX
+    RET
+GET_TICKS ENDP
 
 DELAY PROC
 	PUSH AX
@@ -587,7 +640,8 @@ RANDOM_TIRO PROC
     PUSH CX
     PUSH DX
     
-    CMP NUM_TIROS, 05h
+    mov dl, max_tiros
+    CMP NUM_TIROS, dl
     JE NAO_ATIRA_1
     
     CALL RANDOM
@@ -761,6 +815,47 @@ MOVE_SPACESHIP PROC
     RET
 MOVE_SPACESHIP ENDP
 
+VERIFICA_MOVE_NAVES_INIMIGAS PROC
+    PUSH AX
+    PUSH CX
+    push dx
+    
+    CALL GET_TICKS
+    SUB CH, LAST_TICKS_HOUR
+    CMP CH, 1h
+    JE ADD_TO_TICKS
+    BACK_TO_TICKS:
+    
+    SUB AX, LAST_TICKS
+    mov dx, 0000h
+    mov dl, delay_inimigo
+    CMP AX, dx
+    JL FIM_VERIFICA_MOVE
+    
+    CALL MOVE_NAVES_INIMIGAS
+    CALL GET_TICKS
+    MOV LAST_TICKS, AX
+    MOV LAST_TICKS_HOUR, CH
+    
+    jmp fim_verifica_move
+    
+    ADD_TO_TICKS:
+        mov dl, ch
+        add dl, 30H
+        mov ah, 02H
+        int 21h
+        mov ah, 4ch
+        int 21h
+        ADD AX, 0E10h
+        JMP BACK_TO_TICKS
+        
+    FIM_VERIFICA_MOVE:
+    pop dx
+    POP CX
+    POP AX
+    RET
+VERIFICA_MOVE_NAVES_INIMIGAS ENDP
+
 MOVE_NAVES_INIMIGAS PROC
     PUSH AX
     PUSH BX
@@ -791,7 +886,6 @@ MOVE_NAVES_INIMIGAS PROC
     DESCE:
         CALL ACHA_INIMIGO_EMBAIXO
         CMP BOTTOMOST_ENEMY_Y, 21d
-        ;CMP [POS_NAVES_INIMIGAS_Y+4], 21d
         JE MOVE_ALL
         CALL DESCE_INIMIGOS
     	
@@ -851,7 +945,7 @@ MOVE_NAVE_INIMIGA PROC
 		
 	MOV_NAVE_INIMIGA_ESQ:
 		MOV DL, AUX_MOV
-		DEC DL
+		dec dl
 		MOV AUX_MOV, DL	
 	
 	FIM_MOVE_NAVE_INIMIGA:
@@ -1574,6 +1668,7 @@ INICIA_JOGO PROC
 	mov num_inimigo, 55
 	mov DIR_NAVE_INIMIGA, 'D'
 
+    mov tiros, 00
     mov numero_vidas, 33h
 
 	mov POS_NAVE_X, 10d
