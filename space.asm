@@ -15,7 +15,7 @@ NAVE_JOGADOR_FREN		DB		' ',' ',220,"$"
 NAVE_JOGADOR_TRAS		DB		219,219,219,219,219, "$" 
 
 POS_NAVE_X				DB		10d		;Posição Inicial do carro na tela
-NUMERO_VIDAS			DB		33h
+NUMERO_VIDAS			DB		31h
 D_SCORE					DB		00h
 C_SCORE					DB		00h
 M_SCORE					DB		00h
@@ -64,7 +64,12 @@ MAX_LINHA               DB      05d
 LEFTMOST_ENEMY_X        DB      ?
 RIGHTMOST_ENEMY_X       DB      ?
 BOTTOMOST_ENEMY_Y       DB      ?    
-
+TIRO_INIMIGO_X          DB      0,?,?,?,?
+TIRO_INIMIGO_Y          DB      ?,?,?,?,?
+MAX_TIROS               DB      5d
+NUM_TIROS               DB      00h
+PTR_TIROS               DB      00h
+TIRO_INIMIGO_ASCII      DB      25d, "$"
 
 ; Flags
 PAUSED                  DB      'J'
@@ -149,6 +154,14 @@ STR_CREDITO             DB CR, LF, "        [3] CREDITOS$"
 STR_HELP                DB CR, LF, "        [4] AJUDA$"
 STR_SAIR                DB CR, LF, "        [5] SAIR$"
 
+
+TXT_GAME_OVER           DB " ____    ______           ____        _____   __  __  ____    ____       ", CR,LF
+                        DB "     /\  _`\ /\  _  \  /'\_/`\/\  _`\     /\  __`\/\ \/\ \/\  _`\ /\  _`\     ", CR,LF
+                        DB "     \ \ \L\_\ \ \L\ \/\      \ \ \L\_\   \ \ \/\ \ \ \ \ \ \ \L\_\ \ \L\ \   ", CR,LF
+                        DB "      \ \ \L_L\ \  __ \ \ \__\ \ \  _\L    \ \ \ \ \ \ \ \ \ \  _\L\ \ ,  /   ", CR,LF
+                        DB "       \ \ \/, \ \ \/\ \ \ \_/\ \ \ \L\ \   \ \ \_\ \ \ \_/ \ \ \L\ \ \ \\ \  ", CR,LF
+                        DB "        \ \____/\ \_\ \_\ \_\\ \_\ \____/    \ \_____\ `\___/\ \____/\ \_\ \_\", CR,LF
+                        DB "         \/___/  \/_/\/_/\/_/ \/_/\/___/      \/_____/`\/__/  \/___/  \/_/\/ /", CR, LF, LF, "$"
 .CODE
 
 MAIN PROC 
@@ -183,9 +196,10 @@ MAIN PROC
         JE PAUSA
         
         ;lógica	
+        CALL RANDOM_TIRO
         CALL MOVE_NAVES_INIMIGAS
         CALL MOVE_TIROS
-    	CALL VERIFICA_TIRO_ATINGIU_INIMIGO
+    	
     	
     	CMP SPACESHIP_VISIBLE, 01d
         JE SPACESHIP_JA_VISIVEL
@@ -197,16 +211,34 @@ MAIN PROC
     	CALL MOVE_SPACESHIP
     	NAO_MOVE_SPACESHIP:
         
+    	CALL VERIFICA_TIRO_ATINGIU_INIMIGO
+    	call VERIFICA_TIRO_ATINGIU_PLAYER
+    	
         PAUSA:
         ; Desenho
         CALL DESENHA
         
 		;DELAY :D
+		PUSH BX
+		MOV BX, 10d
 		CALL DELAY
+		POP BX
 		
 	JMP GAME_LOOP
 	
 	FIM_JOGO:
+	    CALL LIMPA_TUDO
+    	MOV AH,2
+	    MOV DL,5d
+	    MOV DH,5d
+	    MOV BH,0
+	    INT 10h
+
+	    mov ah, 09
+	    lea dx, TXT_GAME_OVER
+        int 21h
+        mov bx, 50
+        call delay
 		CALL TELA_INICIAL
 		JMP INICIO_JOGO
 		
@@ -307,7 +339,7 @@ DESENHA_HUD PROC
 	int 21h
 	
 	mov ah, 02
-	mov dl, numero_vidas
+	mov dl, NUMERO_VIDAS
 	int 21h
 	
 	pop dx
@@ -488,7 +520,7 @@ ESCONDE_CURSOR ENDP
 
 DELAY PROC
 	PUSH AX
-	PUSH BX
+	;PUSH BX
 	PUSH CX
 	PUSH DX
 	
@@ -500,7 +532,7 @@ DELAY PROC
 	MOV AH, 2ch	
 	INT 21h
 	
-	ADD DL, 10d			;faça esperar 10ms
+	ADD DL, BL			;faça esperar 10ms
 	MOV LAST_MS, DL
 	MOV LAST_SEC, DH
 	MOV LAST_MIN, CL
@@ -524,7 +556,7 @@ DELAY PROC
 	POP DX
 	POP AX
 	POP CX
-	POP BX
+;	POP BX
 	
 	RET
 	
@@ -548,6 +580,120 @@ DELAY PROC
 		JMP _DELAY
 		
 DELAY ENDP
+
+RANDOM_TIRO PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    CMP NUM_TIROS, 05h
+    JE NAO_ATIRA_1
+    
+    CALL RANDOM
+    
+    CMP AL, 30d
+    JGE INTERVALO_1
+    CMP AL, 90d
+    JGE INTERVALO_2
+        
+    JMP NAO_ATIRA
+    
+    INTERVALO_1:
+        CMP AL, 60d
+        JLE iNIMIGO_ATIRA
+        JMP NAO_ATIRA
+    
+    INTERVALO_2:
+        CMP AL, 120d
+        JLE INIMIGO_ATIRA
+        JMP NAO_ATIRA
+
+        
+    NAO_ATIRA_1:
+        JMP NAO_ATIRA
+        
+    INIMIGO_ATIRA:
+    
+    MOV DH, 00h
+    MOV DL, AL
+    CMP DL, 100d
+    JGE NORMALIZA_RANDOM_1
+    BACK_NORMALIZA_1:
+    CMP DL, 55d
+    JGE NORMALIZA_RANDOM_2
+    BACK_NORMALIZA_2:
+        
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_X
+    ADD BX, DX
+    MOV AL, [BX]
+    ADD AL, 20d
+    CMP POS_NAVE_X, AL
+    JLE TIRO_OK1
+    JMP NAO_ATIRA
+    VOLTA_TIRO:
+    ADD AL, 20d
+    
+    MOV BX, OFFSET TIRO_INIMIGO_X
+    MOV CL, PTR_TIROS
+    ADD BX, CX
+    MOV [BX], AL
+    
+    MOV BX, OFFSET POS_NAVES_INIMIGAS_Y
+    MOV AX, 0000h
+    CMP DL, 11d
+    JLE TIRO_LINHA_0    
+    TIRO_DIV:
+        SUB DL, 11d
+        INC AL
+        CMP DL, 11d
+        JGE TIRO_DIV
+    TIRO_LINHA_0:
+    ADD BX, AX
+    MOV DL, [BX]
+    
+    MOV BX, OFFSET TIRO_INIMIGO_Y
+    MOV CL, PTR_TIROS
+    ADD BX, CX
+    INC DL
+    MOV [BX], DL
+
+    INC NUM_TIROS
+    INC PTR_TIROS
+    CMP PTR_TIROS, 05d
+    JE CIRCLE_QUEUE
+        
+    NAO_ATIRA:
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+    
+    CIRCLE_QUEUE:
+        MOV PTR_TIROS, 00d
+        JMP NAO_ATIRA
+    
+    TIRO_OK1:
+        SUB AL, 40d
+        CMP POS_NAVE_X, AL
+        JGE VOLTA_TIRO
+        JMP NAO_ATIRA
+    
+    NORMALIZA_RANDOM_1:
+        SUB DL, 100d
+        CMP DL, 100d
+        JGE NORMALIZA_RANDOM_2
+        JMP BACK_NORMALIZA_1
+    
+    NORMALIZA_RANDOM_2:
+        SUB DL, 55d
+        CMP DL,55d
+        JGE NORMALIZA_RANDOM_2
+        JMP BACK_NORMALIZA_2  
+    
+RANDOM_TIRO ENDP
 
 RANDOM_SPACESHIP PROC
 	PUSH AX
@@ -864,10 +1010,42 @@ DESENHA_SPACESHIP PROC
 	RET
 DESENHA_SPACESHIP ENDP
 
+DESENHA_TIROS_INIMIGOS PROC
+    PUSH AX    
+    PUSH BX
+    PUSH CX
+    PUSH DX
+
+    GOTOXY [TIRO_INIMIGO_X] [TIRO_INIMIGO_Y]
+    WRITE_STRING TIRO_INIMIGO_ASCII
+        
+    GOTOXY [TIRO_INIMIGO_X+1] [TIRO_INIMIGO_Y+1]
+    WRITE_STRING TIRO_INIMIGO_ASCII
+    
+    GOTOXY [TIRO_INIMIGO_X+2] [TIRO_INIMIGO_Y+2]
+    WRITE_STRING TIRO_INIMIGO_ASCII
+    
+    GOTOXY [TIRO_INIMIGO_X+3] [TIRO_INIMIGO_Y+3]
+    WRITE_STRING TIRO_INIMIGO_ASCII
+    
+    GOTOXY [TIRO_INIMIGO_X+4] [TIRO_INIMIGO_Y+4]
+    WRITE_STRING TIRO_INIMIGO_ASCII
+    
+    CALL ESCONDE_CURSOR
+        
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+DESENHA_TIROS_INIMIGOS ENDP
+
 DESENHA_TIROS PROC
     PUSH BX
     PUSH CX
     PUSH DX
+    
+    CALL DESENHA_TIROS_INIMIGOS
     
     MOV DL, TIROS        ; item do array para var auxiliar
     MOV AUX_MOV, DL
@@ -912,11 +1090,43 @@ ATIRAR PROC
         RET
 ATIRAR ENDP
 
+MOVE_TIROS_INIMIGOS PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV CL, MAX_TIROS
+    MOV BX, OFFSET TIRO_INIMIGO_Y
+    
+    LOOP_MOVE_TIRO_INIMIGO:
+        MOV DL, [BX]
+        ADD DL, 1
+        CMP DL, 25d
+        JE MORRE_TIRO_INIMIGO
+        BACK_MOVE_TIRO:
+        MOV [BX], DL
+        INC BX
+        LOOP LOOP_MOVE_TIRO_INIMIGO        
+    
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+    MORRE_TIRO_INIMIGO:
+        DEC NUM_TIROS
+        MOV DL, 30d
+        JMP BACK_MOVE_TIRO
+MOVE_TIROS_INIMIGOS ENDP
+
 MOVE_TIROS PROC
     PUSH AX
     PUSH BX
     PUSH CX
     PUSH DX
+    
+    CALL MOVE_TIROS_INIMIGOS
     
     MOV DL, TIROS        ; item do array para var auxiliar
     MOV AUX_MOV, DL
@@ -939,6 +1149,58 @@ MOVE_TIROS PROC
     POP AX
     RET
 MOVE_TIROS ENDP
+
+VERIFICA_TIRO_ATINGIU_PLAYER PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV BX, OFFSET TIRO_INIMIGO_Y
+    MOV CL, MAX_TIROS
+    
+    LOOP_VERIFICA_PLAYER_Y:
+        MOV DL, [BX]
+        CMP DL, 23d
+        JE VERIFICA_PLAYER_X
+        INC BX
+        LOOP LOOP_VERIFICA_PLAYER_Y
+        
+    JMP NAO_ATINGIU_PLAYER
+    
+    VERIFICA_PLAYER_X:
+        PUSH BX
+        mov al, max_tiros
+        sub ax, cx
+        MOV BX, OFFSET TIRO_INIMIGO_X
+        add bx, ax
+        mov dl, [bx]
+        pop bx
+        cmp dl, pos_nave_x
+        jge atingiu_player_x_1
+        jmp NAO_ATINGIU_PLAYER
+
+    atingiu_player_x_1:
+        mov al, pos_nave_x
+        add al, 04
+        cmp dl, al
+        jle atingiu_player
+        jmp nao_atingiu_player
+        
+    atingiu_player:
+        dec numero_vidas
+        mov pos_nave_x, 10d
+        mov dl, 24h
+        mov [bx], dl
+        
+    NAO_ATINGIU_PLAYER:
+    
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+VERIFICA_TIRO_ATINGIU_PLAYER ENDP
 
 VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	PUSH AX
@@ -1312,8 +1574,17 @@ INICIA_JOGO PROC
 	mov num_inimigo, 55
 	mov DIR_NAVE_INIMIGA, 'D'
 
+    mov numero_vidas, 33h
 
 	mov POS_NAVE_X, 10d
+	
+	mov bx, offset tiro_inimigo_y
+	mov cx, 5
+	l_add_tiro:
+	    mov dl, 25d
+	    mov [bx], dl
+	    inc bx
+	    loop l_add_tiro
 	
 	mov bx, offset tipo_nave_inimiga
 	mov cx, 11
