@@ -94,8 +94,10 @@ LAST_TICKS              DW      ?
 LAST_TICKS_HOUR         DB      ?
 
 ; hud
-STR_SCORE						DB	"PONT: $"
-STR_LIVES						DB  "VIDAS: $"
+STR_SCORE				DB	"PONT: $"
+STR_LIVES				DB  "VIDAS: $"
+
+BARRIERS                DB " "," "," "," "," "," "," "," "," "," "," ",219,219,219,219,219,219,219," "," "," "," "," "," "," "," "," "," ",219,219,219,219,219,219,219," "," "," "," "," "," "," "," "," "," ",219,219,219,219,219,219,219," "," "," "," "," "," "," "," "," "," ",219,219,219,219,219,219,219,"$"
 
 
 ;Tela inicial
@@ -206,7 +208,6 @@ MAIN PROC
         ;lógica	
         CALL RANDOM_TIRO
         CALL VERIFICA_MOVE_NAVES_INIMIGAS
-;        CALL MOVE_NAVES_INIMIGAS
         CALL MOVE_TIROS
     	
     	
@@ -353,6 +354,16 @@ DESENHA_HUD PROC
 	
 	mov ah, 02
 	mov dl, numero_vidas
+	int 21h
+	
+	MOV AH,2
+	MOV DL,0
+	MOV DH,20
+	MOV BH,0
+	INT 10h
+	
+	mov ah, 09
+	lea dx, barriers
 	int 21h
 	
 	pop dx
@@ -1244,6 +1255,69 @@ MOVE_TIROS PROC
     RET
 MOVE_TIROS ENDP
 
+VERIFICA_INIMIGO_ATINGIU_BARREIRA PROC
+    PUSH BX
+    PUSH DX
+    PUSH AX
+    
+    mov al, max_tiros
+    sub ax, cx
+    MOV BX, OFFSET TIRO_INIMIGO_X
+    ADD BX, AX
+    MOV DL, [BX]
+        
+    MOV BX, OFFSET BARRIERS
+    ADD BX, DX
+    MOV DL, [BX]
+    CMP DL, 219d
+    JE DESTROI_BARREIRA_1
+    CMP DL, 178d
+    JE DESTROI_BARREIRA_2
+    CMP DL, 177d
+    JE DESTROI_BARREIRA_3
+    CMP DL, 176d
+    JE DESTROI_BARREIRA_4
+    
+    JMP NAO_BARREIRA
+
+    DESTROI_BARREIRA_1:
+        MOV DL, 178d
+        MOV [BX], DL
+        JMP FIM_ATINGIU_BARREIRA
+    
+    DESTROI_BARREIRA_2:
+        MOV DL, 177d
+        MOV [BX], DL
+        JMP FIM_ATINGIU_BARREIRA
+        
+    DESTROI_BARREIRA_3:
+        MOV DL, 176d
+        MOV [BX], DL
+        JMP FIM_ATINGIU_BARREIRA
+        
+    DESTROI_BARREIRA_4:
+        MOV DL, " "
+        MOV [BX], DL
+    
+    FIM_ATINGIU_BARREIRA:
+    POP AX
+    POP DX
+    POP BX
+    mov dl, 24h
+    mov [bx], dl
+    
+    JMP FIM_BARREIRA
+
+    NAO_BARREIRA:
+        POP AX
+        POP DX
+        POP BX
+        
+    FIM_BARREIRA:
+    RET
+VERIFICA_INIMIGO_ATINGIU_BARREIRA ENDP
+
+
 VERIFICA_TIRO_ATINGIU_PLAYER PROC
     PUSH AX
     PUSH BX
@@ -1257,10 +1331,17 @@ VERIFICA_TIRO_ATINGIU_PLAYER PROC
         MOV DL, [BX]
         CMP DL, 23d
         JE VERIFICA_PLAYER_X
+        CMP DL, 20d
+        JE VERIFICA_BARREIRA
+        BACK_TO_LOOP:
         INC BX
         LOOP LOOP_VERIFICA_PLAYER_Y
         
     JMP NAO_ATINGIU_PLAYER
+    
+    VERIFICA_BARREIRA:
+        CALL VERIFICA_INIMIGO_ATINGIU_BARREIRA
+        JMP BACK_TO_LOOP
     
     VERIFICA_PLAYER_X:
         PUSH BX
@@ -1296,6 +1377,58 @@ VERIFICA_TIRO_ATINGIU_PLAYER PROC
     RET
 VERIFICA_TIRO_ATINGIU_PLAYER ENDP
 
+VERIFICA_PLAYER_ATINGIU_BARREIRA PROC
+    PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+    
+    MOV BX, OFFSET BARRIERS
+    MOV AL, TIRO_X
+    ADD BX, AX
+    
+    MOV DL, [BX]
+    CMP DL, 219d
+    JE P_DESTROI_BARREIRA_1
+    CMP DL, 178d
+    JE P_DESTROI_BARREIRA_2
+    CMP DL, 177d
+    JE P_DESTROI_BARREIRA_3
+    CMP DL, 176d
+    JE P_DESTROI_BARREIRA_4
+    
+    JMP P_NAO_BARREIRA
+
+    P_DESTROI_BARREIRA_1:
+        MOV DL, 178d
+        MOV [BX], DL
+        JMP P_FIM_ATINGIU_BARREIRA
+    
+    P_DESTROI_BARREIRA_2:
+        MOV DL, 177d
+        MOV [BX], DL
+        JMP P_FIM_ATINGIU_BARREIRA
+        
+    P_DESTROI_BARREIRA_3:
+        MOV DL, 176d
+        MOV [BX], DL
+        JMP P_FIM_ATINGIU_BARREIRA
+        
+    P_DESTROI_BARREIRA_4:
+        MOV DL, " "
+        MOV [BX], DL
+        
+    P_FIM_ATINGIU_BARREIRA:
+        MOV TIROS, 00h
+    
+    P_NAO_BARREIRA:
+    POP DX
+    POP CX
+    POP BX
+    POP AX
+    RET
+VERIFICA_PLAYER_ATINGIU_BARREIRA ENDP
+
 VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	PUSH AX
 	PUSH BX
@@ -1307,8 +1440,17 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	MOV LINHA, 00d
 
 	CMP TIROS, 00d
-	JNE L_VERIFICA_Y
+	JNE L_INICIO_VERIFICA_Y
 	JMP L_FIM_VERIFICA
+
+    L_INICIO_VERIFICA_Y:
+        CMP TIRO_Y, 20d
+        JE L_ATINGIU_BARREIRA_Y
+        JMP L_VERIFICA_Y
+        
+    L_ATINGIU_BARREIRA_Y:
+        CALL VERIFICA_PLAYER_ATINGIU_BARREIRA
+        JMP L_VERIFICA_AUX
 
 	L_VERIFICA_Y:				; verifica se o y do tiro coincide com o y das naves
 		MOV DL, [BX]
