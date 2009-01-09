@@ -34,7 +34,7 @@ CRAB_UPPER              DB      192,219,219,217, "$"
 SQUID_LOWER             DB      ' ',201,202,187, "$"
 DIR_NAVE_INIMIGA		DB		'D'
 SPACESHIP				DB		220,219,219,219,220, "$" 
-SPACESHIP_X				DB		01d
+SPACESHIP_X				DB		60d
 SPACESHIP_Y				DB		01d
 SPACESHIP_DIR			DB		'D'
 SPACESHIP_VISIBLE		DB		00d
@@ -217,7 +217,7 @@ MAIN PROC
 		SPACESHIP_JA_VISIVEL:
     	
     	CMP SPACESHIP_VISIBLE, 00d
-    	JE NAO_MOVE_SPACESHIP
+      	JE NAO_MOVE_SPACESHIP
     	CALL MOVE_SPACESHIP
     	NAO_MOVE_SPACESHIP:
         
@@ -1240,7 +1240,7 @@ MOVE_TIROS PROC
     JE L_NAO_MOVE_TIRO
         
     DEC TIRO_Y
-        
+    
     ; se o tiro chegou na borda da tela
     CMP TIRO_Y, 00h
     JNE L_NAO_MOVE_TIRO
@@ -1429,6 +1429,71 @@ VERIFICA_PLAYER_ATINGIU_BARREIRA PROC
     RET
 VERIFICA_PLAYER_ATINGIU_BARREIRA ENDP
 
+TRATA_ATINGIU_SPACE PROC
+    PUSH DX
+
+    CMP SPACESHIP_VISIBLE, 01h
+    JNE FIM_TRATA_ATINGIU_SPACE
+    
+    MOV DL, SPACESHIP_X
+    CMP TIRO_X, DL
+    JGE ATINGIU_1
+    JMP FIM_TRATA_ATINGIU_SPACE
+    
+    ATINGIU_1:
+        ADD DL, 04d
+        CMP TIRO_X, DL
+        JLE ATINGIU_2
+        JMP FIM_TRATA_ATINGIU_SPACE
+    
+    ATINGIU_2:
+        MOV AH, 2Ch
+        INT 21h
+        
+        CMP DH, 10d
+        JLE PONTUA_50
+        CMP DH, 20d
+        JLE PONTUA_100
+        CMP DH, 30d
+        JLE PONTUA_150
+        CMP DH, 40d
+        JLE PONTUA_200
+        CMP DH, 50d
+        JLE PONTUA_250
+        
+        ADD C_SCORE, 3d
+        JMP FIM_PONTUA
+        
+        PONTUA_50:
+            ADD D_SCORE, 5d
+            JMP FIM_PONTUA
+            
+        PONTUA_100:
+            ADD C_SCORE, 1d
+            JMP FIM_PONTUA
+            
+        PONTUA_150:
+            ADD D_SCORE, 5d
+            ADD C_SCORE, 1d
+            JMP FIM_PONTUA
+            
+        PONTUA_200:
+            ADD C_SCORE, 2d
+            JMP FIM_PONTUA
+            
+        PONTUA_250:
+            ADD D_SCORE, 5d
+            ADD C_SCORE, 2d
+            
+        FIM_PONTUA:
+            MOV TIROS, 00h
+            MOV SPACESHIP_VISIBLE, 00h
+    
+    FIM_TRATA_ATINGIU_SPACE:
+    POP DX
+    RET
+TRATA_ATINGIU_SPACE ENDP
+
 VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	PUSH AX
 	PUSH BX
@@ -1446,6 +1511,8 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
     L_INICIO_VERIFICA_Y:
         CMP TIRO_Y, 20d
         JE L_ATINGIU_BARREIRA_Y
+        CMP TIRO_Y, 01d
+        JE ATINGIU_SPACE
         JMP L_VERIFICA_Y
         
     L_ATINGIU_BARREIRA_Y:
@@ -1455,12 +1522,16 @@ VERIFICA_TIRO_ATINGIU_INIMIGO PROC
 	L_VERIFICA_Y:				; verifica se o y do tiro coincide com o y das naves
 		MOV DL, [BX]
 		CMP TIRO_Y, DL
-		JE L_ATINGIU_Y			; se é igual atingiu no eixo x
+		JE L_ATINGIU_Y			; se é igual atingiu no eixo Y
 		INC BX
 		INC LINHA				; vai pra proxima linha, usado pra posicionar o vetor x
 		LOOP L_VERIFICA_Y	
-	
-	JMP L_FIM_VERIFICA
+
+    JMP L_FIM_VERIFICA	    
+
+    ATINGIU_SPACE:  
+        CALL TRATA_ATINGIU_SPACE
+		JMP L_FIM_VERIFICA
 	
 	L_ATINGIU_Y:
 		PUSH BX
