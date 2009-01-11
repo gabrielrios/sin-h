@@ -659,8 +659,8 @@ RANDOM_TIRO PROC
     
     CMP AL, 30d
     JGE INTERVALO_1
-    CMP AL, 90d
-    JGE INTERVALO_2
+    ;CMP AL, 90d
+    ;JGE INTERVALO_2
         
     JMP NAO_ATIRA
     
@@ -693,12 +693,12 @@ RANDOM_TIRO PROC
     MOV BX, OFFSET POS_NAVES_INIMIGAS_X
     ADD BX, DX
     MOV AL, [BX]
-    ADD AL, 20d
+    ADD AL, 10d
     CMP POS_NAVE_X, AL
     JLE TIRO_OK1
     JMP NAO_ATIRA
     VOLTA_TIRO:
-    ADD AL, 20d
+    ADD AL, 10d
     
     MOV BX, OFFSET TIRO_INIMIGO_X
     MOV CL, PTR_TIROS
@@ -741,7 +741,7 @@ RANDOM_TIRO PROC
         JMP NAO_ATIRA
     
     TIRO_OK1:
-        SUB AL, 40d
+        SUB AL, 20d
         CMP POS_NAVE_X, AL
         JGE VOLTA_TIRO
         JMP NAO_ATIRA
