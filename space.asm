@@ -9,6 +9,14 @@ LF						EQU		0Ah
 TECLA_ESC				EQU		1Bh
 ESQUERDA    			EQU     4Bh
 DIREITA     			EQU     4Dh
+;records
+CR 						EQU		0Dh
+LF						EQU		0Ah
+ARQUIVO 				DB	"records.txt", 00h
+BUFFER			    	DB  60 dup ('0')
+BUFFER_AUX				DB  30 dup ('0')
+HANDLE					DW	?
+STR_GET_NAME			DB CR, CR, CR, CR, CR, LF, "DIGITE AS 3 PRIMEIRAS INICIALS DO SEU NOME: $"
 
 ; JOGADOR
 NAVE_JOGADOR_FREN		DB		' ',' ',220,"$"	
@@ -152,7 +160,7 @@ TXT_HELP                DB "      .__.   ..  ..__ .__.",CR,LF
 TXT_RECORDS             DB "      .__ .___ __ .__..__ .__  __.", CR, LF
                         DB "      [__)[__ /  `|  |[__)|  \(__ ", CR, LF
                         DB "      |  \[___\__.|__||  \|__/.__)", CR, LF
-                        DB LF,LF, "             EM BREVE!", CR, LF, "$"
+                        DB LF,LF, "             ", CR, LF, "$"
 
 STR_INICIAR             DB CR, LF,LF, "        [1] INICIAR JOGO$"
 STR_RECORDS             DB CR, LF, "        [2] RECORDS$"
@@ -237,6 +245,7 @@ MAIN PROC
 	JMP GAME_LOOP
 	
 	FIM_JOGO:
+		call check_record
 	    CALL LIMPA_TUDO
     	MOV AH,2
 	    MOV DL,5d
@@ -266,6 +275,383 @@ MAIN PROC
 	
 
 MAIN ENDP
+
+show_score proc
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	call load_score
+	
+	xor cx, cx
+	mov cl, 5d
+	mov bx, offset buffer
+	mov ah, 02h
+	imprime:
+		push cx
+		mov cl, 03d
+		mov ah, 02h
+		imprime_nome:
+			mov dl, [bx]
+			int 21h
+			inc bx
+		loop imprime_nome
+		mov dl, ' '
+		int 21h
+		mov cl, 03d
+		imprime_score:
+			mov dl, [bx]
+			int 21h
+			inc bx
+		loop imprime_score
+		mov dl, '0'
+		int 21h
+		pop cx
+		mov dl, cr
+		int 21h
+		mov dl, lf
+		int 21h
+	loop imprime
+	
+	mov ah, 01h
+	int 21h
+	
+	FIM_SHOW_SCORE:
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	RET
+show_score endp
+
+check_record proc
+	add m_score, 30h
+	add d_score, 30h
+	add c_score, 30h
+	call load_score
+	call write_record
+	sub m_score, 30h
+	sub d_score, 30h
+	sub c_score, 30h
+	
+	CALL LIMPA_TUDO
+	PUSH AX
+			PUSH BX
+			PUSH DX
+
+			MOV AH,2d
+			MOV DL,0d
+			MOV DH,3d
+			MOV BH,0d
+			INT 10h
+	
+			POP DX
+			POP BX
+			POP AX
+	call show_score
+	
+check_record endp
+
+write_record proc
+	PUSH AX
+    PUSH BX
+    PUSH CX
+    PUSH DX
+	
+	XOR CX, CX
+	
+	CALL SET_PROFILE
+	CALL IS_BIGGER
+	CMP DL, 1h
+	JE INSERE
+
+	mov cl, 1d
+	CALL SET_PROFILE
+	CALL IS_BIGGER
+	CMP DL, 1h
+	JE INSERE
+	
+	mov cl,  2d
+	CALL SET_PROFILE
+	CALL IS_BIGGER
+	CMP DL, 1h
+	JE INSERE
+	
+	mov cl,  3d
+	CALL SET_PROFILE
+	CALL IS_BIGGER
+	CMP DL, 1h
+	JE INSERE
+	
+	mov cl,  4d
+	CALL SET_PROFILE
+	CALL IS_BIGGER
+	CMP DL, 1h
+	JE INSERE
+	
+	jmp fim_write_record
+	
+	INSERE:
+		PUSH CX
+		
+			PUSH AX
+			PUSH BX
+			PUSH DX
+
+			MOV AH,2d
+			MOV DL,0d
+			MOV DH,0d
+			MOV BH,0d
+			INT 10h
+	
+			POP DX
+			POP BX
+			POP AX
+		MOV AH, 09H
+		LEA DX, STR_GET_NAME
+		INT 21H
+		CALL SET_PROFILE
+		MOV AH, 01H
+		mov cx, 03d
+		ENTRADA_INSERE:
+			INT 21H
+			MOV [BX], AL
+			INC BX
+		LOOP ENTRADA_INSERE
+		mov AL, M_SCORE
+		MOV [BX], AL
+		INC BX
+		mov AL, C_SCORE
+		MOV [BX], AL
+		INC BX
+		MOV AL, D_SCORE
+		MOV [BX], AL
+		POP CX
+		INC CX
+		CALL SET_PROFILE
+		xor ax, ax
+		mov al, cl
+		xor si, si
+		MOV SI, 6d
+		mul si
+		mov si, ax
+		MOV CX, 30D
+		sub si, 6d
+		COPIA_RESTO:
+			PUSH BX
+			MOV BX, OFFSET BUFFER_AUX
+			MOV AL, [BX+SI]
+			POP BX
+			MOV [BX], AL
+			INC BX
+			INC SI
+		LOOP COPIA_RESTO
+		
+		call del_file
+		call make_file
+		call open_file
+		call write_file
+		call close_file
+	fim_write_record:	
+		pop dx
+		pop cx
+		pop bx
+		pop ax
+		ret
+write_record endp
+
+del_file proc
+	push ax
+	push bx
+	push cx
+	push dx
+	
+	mov AH,41h 
+	mov dx, offset arquivo
+	
+	int 21h
+	
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	ret
+del_file endp
+
+SET_PROFILE PROC
+	push cx
+	MOV BX, OFFSET BUFFER
+	CMP CX, 0D
+	JE FIM_SET_PROFILE
+	
+	INDEXA_PROFILE:
+		ADD BX, 6D
+	LOOP INDEXA_PROFILE
+	
+	FIM_SET_PROFILE:
+	pop cx
+	RET
+SET_PROFILE ENDP
+
+LOAD_SCORE PROC
+	PUSH DX
+    
+	CALL OPEN_FILE
+	MOV   DX, OFFSET BUFFER      ; de onde os dados estão vindo
+	CALL READ_FILE
+	CALL CLOSE_FILE
+	
+	
+	CALL OPEN_FILE
+	MOV   DX, OFFSET BUFFER_AUX      ; de onde os dados estão vindo
+	CALL READ_FILE
+	CALL CLOSE_FILE
+	
+    POP DX
+	ret
+LOAD_SCORE ENDP
+
+IS_BIGGER PROC
+	push ax
+
+	add bx, 3d
+	mov dl, [bx]
+	
+	cmp m_score, dl
+	je centena_is_bigger
+	jg maior_is_bigger
+	jl menor_is_bigger
+	
+	centena_is_bigger:
+		inc bx
+		mov dl, [bx]
+		cmp c_score, dl
+		je dezena_is_bigger
+		jg maior_is_bigger
+		jl menor_is_bigger
+	
+	dezena_is_bigger:
+		inc bx
+		mov dl, [bx]
+		cmp d_score, dl
+		jge maior_is_bigger
+		jl menor_is_bigger
+
+	menor_is_bigger:
+		MOV DL, 0D
+		JMP FIM_is_bigger
+	
+	maior_is_bigger:
+		MOV DL, 1D
+		jmp fim_is_bigger
+
+	fim_is_bigger:
+		pop ax
+		ret
+IS_BIGGER ENDP
+
+
+OPEN_FILE PROC
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+	
+	INICIO_OPEN_FILE:
+	mov dx, OFFSET ARQUIVO	;address of filename 
+	mov cx,3Fh 		;file mask 3Fh - any file
+	mov ah,4Eh 		;function 4Eh - find first file 
+	int 21h 		;call DOS service 
+	jc NO_FILE
+	
+	LEA   DX,ARQUIVO	; Põe o offset do arquivo a abrir em DX
+	MOV   AH,3Dh            ; Abre
+	MOV   AL,02h            ; para leitura/escrita
+	INT   21h
+	MOV   HANDLE,AX
+	JMP END_OPEN_FILE
+		
+	NO_FILE: 
+		CALL MAKE_FILE
+		CALL WRITE_FILE
+		CALL CLOSE_FILE
+		JMP INICIO_OPEN_FILE
+
+	END_OPEN_FILE:
+		POP DX
+		POP CX
+		POP BX
+		POP AX
+		RET
+OPEN_FILE ENDP
+
+;DESTINO DOS DADOS FICA ARMAZENADO EM DX, 	MOV   DX, OFFSET BUFFER      ; de onde os dados estão vindo
+READ_FILE PROC
+	push ax
+	push bx
+	push cx
+	MOV   BX, HANDLE             ; arquivo para se escrever nele
+	MOV   CX, 30d                 ; quanto a ler
+	MOV   AH, 3Fh                ; LER byte(s)
+	INT   21h
+	pop cx
+	pop bx
+	pop ax
+	RET
+READ_FILE ENDP
+
+CLOSE_FILE PROC
+	push ax
+	push bx
+	push cx
+	push dx
+	;fecha o arquivo
+	MOV AH,3Eh
+	MOV BX,HANDLE
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	RET
+	
+CLOSE_FILE ENDP
+
+WRITE_FILE PROC
+	push ax
+	push bx
+	push cx
+	push dx
+	MOV   DX, offset BUFFER    ; de onde os dados estão vindo
+	MOV   BX, HANDLE           ; arquivo para se escrever nele
+	MOV   CX, 30d               ; quanto a ler
+	MOV   AH, 40H              ; LER byte(s)
+    INT   21H
+	pop dx
+	pop cx
+	pop bx
+	pop ax
+	RET
+	
+WRITE_FILE ENDP
+
+MAKE_FILE PROC
+	PUSH AX
+	PUSH BX
+	PUSH CX
+	PUSH DX
+	
+	MOV	AH, 3Ch              ;Função 3Ch (int 21h)
+	MOV CX, 20h              ;Atributo (arquvio = 1)
+	MOV DX, OFFSET ARQUIVO
+	INT 21h 
+	MOV HANDLE, AX
+	pOP DX
+	POP CX
+	POP BX
+	POP AX
+	RET
+MAKE_FILE ENDP
 
 LIMPA_TUDO PROC
     PUSH AX
@@ -1835,9 +2221,10 @@ TELA_INICIAL PROC
         MOV AH, 09H
         LEA DX, TXT_RECORDS
         INT 21H
-        CALL ESCONDE_CURSOR
-        MOV AH, 07H
-        INT 21H
+		call show_score
+		CALL ESCONDE_CURSOR
+        ;MOV AH, 07H
+        ;INT 21H
         JMP MAIN_TELA
         
     AJUDA:
